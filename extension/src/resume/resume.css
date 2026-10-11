@@ -1,0 +1,50 @@
+/* 版式照 resume-kit/build.mjs（你自己那版）：左蓝栏 + 右主体，字号行距按 docx 的值换算 */
+@page { size: A4; margin: 0; }
+:root { --blue: #2E80E8; --ink: #333; }
+* { box-sizing: border-box; }
+html, body { margin: 0; background: #e9edf2; font-family: "Microsoft YaHei", "微软雅黑", sans-serif; color: var(--ink); }
+
+.toolbar { max-width: 210mm; margin: 12px auto; background: #fff; border-radius: 8px; padding: 10px 14px; font-size: 13px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.tb-main { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.tb-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.tb-note { color: #555; margin: 6px 0 0; line-height: 1.6; }
+ul.tb-note { padding-left: 18px; }
+#tb-status:empty, #tb-reasons:empty { display: none; }
+button { font: inherit; padding: 5px 12px; border: 1px solid #c9d3df; border-radius: 6px; background: #fff; cursor: pointer; }
+button.primary { background: var(--blue); border-color: var(--blue); color: #fff; }
+button:disabled { opacity: .5; cursor: default; }
+
+.page { width: 210mm; height: 297mm; margin: 0 auto 24px; background: #fff; display: flex; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,.12); }
+
+.side { width: 26.54%; flex-shrink: 0; background: var(--blue); color: #fff; padding: 0 12pt 20pt 15pt; line-height: 1.45; }
+.photo { display: block; width: 33mm; height: 33mm; margin: 23pt auto 8.5pt; border-radius: 50%; object-fit: cover; }
+.photo-gap { height: 35pt; }
+.name { text-align: center; font-size: 20pt; letter-spacing: 1pt; margin-bottom: 12.5pt; }
+.facts { list-style: none; margin: 0; padding: 0; font-size: 9pt; }
+.facts li { margin-bottom: 6.5pt; }
+.facts li::before { content: "·  "; }
+.side-title { font-size: 11pt; font-weight: bold; border-top: .75pt solid #fff; padding-top: 10pt; margin: 17pt 0 7pt; }
+.skill { font-size: 8.5pt; margin: 0 0 7.5pt; text-align: justify; }
+.side-item { font-size: 8.5pt; margin: 0 0 1.5pt; }
+.side-item span { font-size: 7.5pt; color: #D9E8FB; margin-left: 6pt; }
+.side-text { font-size: 8pt; color: #EAF2FD; margin: 0 0 7pt; }
+
+.main { flex: 1; min-width: 0; padding: 15pt 20pt 15pt 21pt; font-size: 9pt; line-height: 1.5; overflow: hidden; }
+.main h2 { font-size: 12pt; color: var(--blue); margin: 12pt 0 6pt; padding-bottom: 3pt; border-bottom: .75pt solid var(--blue); }
+.main h2:first-child { margin-top: 0; }
+.intent { display: grid; grid-template-columns: 1fr 1fr; margin-bottom: 2pt; }
+.ihead { display: grid; grid-template-columns: 1fr auto 1fr; gap: 6pt; font-weight: bold; margin: 7pt 0 3pt; }
+.ihead span:nth-child(2) { text-align: center; }
+.ihead span:nth-child(3) { text-align: right; }
+.iline { margin: 0 0 1pt; text-align: justify; }
+
+@media print {
+  html, body { background: #fff; }
+  .toolbar { display: none; }
+  .page { margin: 0; box-shadow: none; }
+}
+.site { margin: 0 0 4pt; padding-left: 7pt; border-left: 2.25pt solid var(--blue); font-size: 10pt; color: var(--blue); }
+.site a { color: var(--blue); font-weight: bold; }
+.site span { font-size: 8.5pt; color: #666; margin-left: 8pt; }
+.intent3 { display: grid; grid-template-columns: 1.55fr 1fr 1fr; margin-bottom: 2pt; }
+.facts a { color: #fff; }

@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <title>求职助手 — 设置</title>
+  <link rel="stylesheet" href="options.css" />
+</head>
+<body>
+<div class="wrap">
+  <h1>设置 <small id="ver" class="ver"></small></h1>
+  <p class="hint">第一次用：按 ① ② ③ 填完，点最下面的「保存全部设置」，再去侧边栏点「开始」。后面几块有默认值，不改也能用。</p>
+  <div id="checklist" class="checklist"></div>
+
+  <section id="sec-key">
+    <h2><span class="step">①</span>模型 Key（DeepSeek）</h2>
+    <p class="hint">
+      筛岗位、写开场白、解析简历都要用模型。去 <a href="https://platform.deepseek.com/api_keys" target="_blank" rel="noopener">platform.deepseek.com</a>
+      注册、充值（10 元能用很久），在「API keys」里创建一个，粘到下面，点「测试连接」。
+      Key 只存在你这台电脑的浏览器里，不会发给别人。按 DeepSeek 官方价估，筛一个岗位大约一两分钱。
+    </p>
+    <div class="row">
+      <label>API Key<input id="apiKey" type="password" placeholder="sk-..." autocomplete="off" /></label>
+      <button id="test-api">测试连接</button>
+    </div>
+    <p id="api-status" class="hint"></p>
+    <details class="adv">
+      <summary>换别的模型（一般不用动）</summary>
+      <div class="row">
+        <label>服务商
+          <select id="provider">
+            <option value="openai">OpenAI 兼容接口（默认 DeepSeek）</option>
+            <option value="anthropic">Claude 官方（Anthropic）</option>
+          </select>
+        </label>
+        <label>接口地址<input id="apiBase" placeholder="https://api.deepseek.com" /></label>
+      </div>
+      <div class="row">
+        <label>模型
+          <input id="model" list="model-list" placeholder="deepseek-flash" />
+          <datalist id="model-list">
+            <option value="deepseek-flash">DeepSeek · deepseek-flash（默认，快、便宜）</option>
+            <option value="claude-sonnet-5">Claude Sonnet 5</option>
+            <option value="claude-haiku-4-5">Claude Haiku 4.5</option>
+          </datalist>
+        </label>
+        <label>思考深度
+          <select id="effort">
+            <option value="low">low（最省）</option>
+            <option value="medium" selected>medium（推荐）</option>
+            <option value="high">high（最准）</option>
+          </select>
+        </label>
+      </div>
+      <p class="hint">接口地址换成 DeepSeek / Claude 以外的，保存时浏览器会弹窗问你要不要给这个网站的访问权限，点允许。</p>
+    </details>
+  </section>
+
+  <section id="sec-city">
+    <h2><span class="step">②</span>求职城市</h2>
+    <label>城市（只在这些城市找；填多个用逗号隔开，第一个用来开搜索页）<input id="cities" placeholder="比如 杭州" /></label>
+    <p id="city-status" class="hint"></p>
+    <details class="adv">
+      <summary>城市代码查不到时手填</summary>
+      <p class="hint">在 BOSS / 51job 网站上选好城市搜一次，地址栏里 <code>city=</code> / <code>jobArea=</code> 后面那串数字就是代码。</p>
+      <div class="row">
+        <label>BOSS 城市代码<input id="bossCode" placeholder="自动" /></label>
+        <label>51job 地区代码<input id="job51Code" placeholder="自动" /></label>
+      </div>
+    </details>
+  </section>
+
+  <section id="sec-resume">
+    <h2><span class="step">③</span>简历</h2>
+    <p class="hint">把简历全文粘进来（Word / PDF 里全选复制即可），点「解析简历」，模型会拆成下面的格子。
+      解析只是照抄和归类，<strong>不会替你润色或编造</strong>；读错的直接在格子里改。</p>
+    <textarea id="rawText" rows="8" placeholder="粘贴简历全文…"></textarea>
+    <div class="row">
+      <button id="parse-resume" class="primary">解析简历</button>
+      <button id="import-json">导入 JSON</button>
+      <button id="export-json">导出 JSON</button>
+      <input id="file-json" type="file" accept=".json,.txt,.md" hidden />
+      <span id="resume-status" class="hint"></span>
+    </div>
+    <div class="grid basics">
+      <label>姓名<input data-r="name" /></label>
+      <label>目标岗位<input data-r="title" placeholder="比如 新媒体运营 / 电商运营" /></label>
+      <label>工作年限<input data-r="years" type="number" min="0" /></label>
+      <label>手机<input data-r="phone" /></label>
+      <label>邮箱<input data-r="email" /></label>
+      <label>性别<input data-r="gender" /></label>
+      <label>学校<input data-r="school" /></label>
+      <label>专业<input data-r="major" /></label>
+      <label>学历<input data-r="degree" placeholder="本科 / 硕士 / 大专" /></label>
+      <label>入学年月<input data-r="eduStart" placeholder="2022-09" /></label>
+      <label>毕业年月<input data-r="graduation" placeholder="2026-06" /></label>
+      <label>期望薪资<input data-r="salary" placeholder="比如 6-8K" /></label>
+    </div>
+    <label>作品集 / 个人主页网址（没有就空着；填了会在开场白和网申开放题里自动带上）<input data-r="site" placeholder="https://..." /></label>
+    <div id="resume-preview" class="preview"></div>
+  </section>
+
+  <section>
+    <h2>找工作标准</h2>
+    <p class="hint">
+      模型按这段话判断每个岗位「投 / 等你定 / 不投」。<strong>把带【】的地方改成你自己的情况</strong>，不需要的段落直接删；
+      写得越具体，筛得越准。
+    </p>
+    <textarea id="criteria" rows="18"></textarea>
+    <button id="reset-criteria">恢复成模板</button>
+  </section>
+
+  <section>
+    <h2>硬性筛选</h2>
+    <p class="hint">本地跑，不花钱。在这一步淘汰掉的岗位不会调用模型。列表页薪资是防爬字体读不出来，薪资条件在打开详情页后才生效。</p>
+    <div class="grid">
+      <label>薪资上沿至少 (K)<input id="salaryMin" type="number" min="0" /></label>
+      <label>薪资下沿至少 (K)<input id="salaryFloorMin" type="number" min="0" /></label>
+      <label>月薪上限 (K，0=不限)<input id="salaryMax" type="number" min="0" /></label>
+      <label>岗位要求年限上限 (0=不限)<input id="maxYearsRequired" type="number" min="0" /></label>
+    </div>
+    <label>必含关键词（岗位名/公司名命中其一才留下，空=不限）<input id="includeKeywords" placeholder="运营, 市场, 品牌" /></label>
+    <label>排除关键词（命中就淘汰）<input id="excludeKeywords" placeholder="外包, 驻场, 销售, 众包" /></label>
+    <label class="check"><input id="skipChatted" type="checkbox" /> 跳过已经沟通过的岗位</label>
+  </section>
+
+  <section>
+    <h2>简历变体（可选）</h2>
+    <p class="hint">
+      BOSS 的附件简历绑在账号上，工具没法逐岗位自动换。如果你在 BOSS 上传了 2~4 份不同侧重的简历，
+      在这里登记，工具评估岗位时会告诉你「这个该发哪一份」。只传了一份就不用管。
+    </p>
+    <div id="variants"></div>
+    <button id="add-variant">+ 加一份变体</button>
+  </section>
+
+  <section>
+    <h2>进列表的门槛</h2>
+    <div class="grid">
+      <label>匹配分至少<input id="askMe" type="number" min="0" max="100" /></label>
+    </div>
+    <p class="hint">不会自动投：筛选只把结论不是「不投」的岗位排进列表，你按「投」才发。
+      模型判「等你定」的不管多少分都进列表；判「投」但匹配分低于这条线的不进列表。</p>
+  </section>
+
+  <section>
+    <h2>节奏与配额</h2>
+    <p class="hint">
+      BOSS 对打招呼频率有限制，短时间大量操作会触发验证码甚至限号。
+      下面这组默认值是偏保守的，<strong>建议别往激进了调</strong>。
+    </p>
+    <div class="grid">
+      <label>BOSS 每日上限<input id="dailyLimit" type="number" min="1" max="100" /></label>
+      <label>间隔下限 (秒)<input id="minDelay" type="number" min="10" /></label>
+      <label>间隔上限 (秒)<input id="maxDelay" type="number" min="10" /></label>
+      <label>连发几个后长休<input id="batchSize" type="number" min="1" /></label>
+      <label>长休时长 (分钟)<input id="longRest" type="number" min="1" /></label>
+    </div>
+    <label class="check"><input id="stopOnCaptcha" type="checkbox" /> 出现验证码/限流提示立即停机（强烈建议开）</label>
+  </section>
+
+  <section>
+    <h2>开场白</h2>
+    <div class="grid">
+      <label>字数上限<input id="maxChars" type="number" min="30" max="500" /></label>
+    </div>
+    <label>语气要求<input id="tone" /></label>
+    <label>每条必须带上（逗号分隔）<input id="mustInclude" /></label>
+    <p class="hint">不管模型写成什么样，发之前都会再查一遍：问底薪、休息的句子删掉；出现禁用词的不发，转到待确认。</p>
+    <label>禁用词（逗号分隔）<input id="forbid" /></label>
+  </section>
+
+  <section>
+    <h2>网申自动填（可选）</h2>
+    <p class="hint">在公司官网的网申表单页，侧边栏「网申」里点「填这一页」会按你的简历填表（只填不交）。下面两个文件用来自动上传附件，不填就你自己传。</p>
+    <label>简历 PDF 完整路径<input id="afResume" placeholder="比如 D:\简历\张三-简历.pdf" /></label>
+    <label>证件照完整路径<input id="afPhoto" placeholder="比如 D:\简历\证件照.jpg" /></label>
+    <details class="adv">
+      <summary>填网申单独用一个模型（一般不用动，空着就用 ① 的）</summary>
+      <div class="row">
+        <label>接口地址<input id="afApiBase" placeholder="https://api.deepseek.com" /></label>
+        <label>模型<input id="afModel" placeholder="deepseek-flash" /></label>
+      </div>
+      <label>API Key<input id="afApiKey" type="password" placeholder="空着就用 ① 的 Key" autocomplete="off" /></label>
+      <button id="test-af">测试连接</button>
+      <p id="af-status" class="hint"></p>
+    </details>
+  </section>
+
+  <div class="footer">
+    <button id="save" class="primary">保存全部设置</button>
+    <span id="save-status" class="hint"></span>
+  </div>
+</div>
+<script type="module" src="options.js"></script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+/* 页面上的黑话高亮。只有这一条类名，不影响网页别的样式 */
+mark.jdd-mark{color:inherit!important;background:linear-gradient(transparent 55%,var(--jdd-mk) 55%,var(--jdd-mk) 94%,transparent 94%)!important;
+  padding:0 1px!important;border-radius:2px;cursor:help;transition:background-color .15s}
+mark.jdd-mark:hover{background-color:color-mix(in srgb,var(--jdd-mk) 40%,transparent)!important}
+mark.jdd-mark[data-c=overtime]{--jdd-mk:#f7b267}
+mark.jdd-mark[data-c=money]{--jdd-mk:#f4d35e}
+mark.jdd-mark[data-c=fake]{--jdd-mk:#ee8b8b}
+mark.jdd-mark[data-c=scam]{--jdd-mk:#e05a4f}
+mark.jdd-mark[data-c=cake]{--jdd-mk:#c7a8e8}
+mark.jdd-mark[data-c=fit]{--jdd-mk:#9cc3e6}
+mark.jdd-mark[data-c=good]{--jdd-mk:#94d3a8}

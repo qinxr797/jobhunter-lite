@@ -1,0 +1,122 @@
+{
+  "manifest_version": 3,
+  "name": "求职助手（BOSS / 51job / 智联 / 网申）",
+  "version": "1.0.0",
+  "description": "在 BOSS直聘、前程无忧、智联招聘上按你的求职标准和简历筛岗位，列成清单等你审，你按「投」才投。",
+  "minimum_chrome_version": "116",
+  "permissions": [
+    "storage",
+    "tabs",
+    "scripting",
+    "sidePanel",
+    "alarms",
+    "downloads",
+    "debugger",
+    "webNavigation",
+    "notifications"
+  ],
+  "host_permissions": [
+    "https://www.zhipin.com/*",
+    "https://*.51job.com/*",
+    "https://*.zhaopin.com/*",
+    "https://api.anthropic.com/*",
+    "https://api.qiuzhifangzhou.com/*",
+    "https://api.deepseek.com/*",
+    "https://www.baidu.com/*",
+    "https://www.qcc.com/*",
+    "https://*.zhiye.com/*",
+    "https://*.mokahr.com/*",
+    "https://*.feishu.cn/*"
+  ],
+  "background": {
+    "service_worker": "src/background.js",
+    "type": "module"
+  },
+  "side_panel": {
+    "default_path": "src/sidepanel/panel.html"
+  },
+  "options_page": "src/options/options.html",
+  "action": {
+    "default_title": "求职助手"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.zhipin.com/*"
+      ],
+      "js": [
+        "src/content/agent.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
+    },
+    {
+      "matches": [
+        "https://we.51job.com/*",
+        "https://jobs.51job.com/*"
+      ],
+      "js": [
+        "src/content/job51.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
+    },
+    {
+      "matches": [
+        "https://*.zhaopin.com/*"
+      ],
+      "js": [
+        "src/content/zhilian.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
+    },
+    {
+      "matches": [
+        "https://www.zhipin.com/web/geek/chat*",
+        "https://i.zhaopin.com/*"
+      ],
+      "js": [
+        "src/content/chatlinks.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
+    },
+    {
+      "matches": [
+        "https://www.zhipin.com/*",
+        "https://*.51job.com/*",
+        "https://*.zhaopin.com/*"
+      ],
+      "js": [
+        "src/vendor/jd-decoder/rules.js",
+        "src/vendor/jd-decoder/engine.js",
+        "src/vendor/jd-decoder/sites.js",
+        "src/vendor/jd-decoder/preset.js",
+        "src/vendor/jd-decoder/content.js"
+      ],
+      "css": [
+        "src/vendor/jd-decoder/content.css"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "src/lib/selectors.js"
+      ],
+      "matches": [
+        "https://www.zhipin.com/*"
+      ]
+    }
+  ],
+  "icons": {
+    "128": "icons/icon128.png"
+  },
+  "optional_host_permissions": [
+    "https://*/*",
+    "http://*/*"
+  ]
+}
