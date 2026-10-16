@@ -338,7 +338,8 @@ function watchView() {
   const staleMin = s.updated ? Math.round((Date.now() - Date.parse(s.updated + '+08:00')) / 60e3) : 0;
   const busy = s.alive && !s.paused && /扫|看|想|发|等收件箱/.test(s.doing || '');
   const v = { plats, busy, level: 'ok', dot: 'on', title: '盯梢', when: '', tip: '' };
-  if (!s.alive) Object.assign(v, { level: 'bad', dot: 'bad', title: '盯梢没开', when: 'HR 的消息现在没人看 · 点这里打开' });
+  if (!s.alive && !setup.ready()) Object.assign(v, { level: 'idle', dot: '', title: '盯梢还没开始', when: '填完设置会自动开' });   // 第一次用：别一上来就报红
+  else if (!s.alive) Object.assign(v, { level: 'bad', dot: 'bad', title: '盯梢没开', when: 'HR 的消息现在没人看 · 点这里打开' });
   else if (s.paused) Object.assign(v, { level: 'warn', dot: 'warn', title: '盯梢暂停中', when: '不看也不回 · 点这里继续' });
   else if (broken.length) {
     const b = broken[0];
