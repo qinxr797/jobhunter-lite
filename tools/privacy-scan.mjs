@@ -48,16 +48,18 @@ const BIG = 8 * 1024 * 1024;
 const hits = [], passed = [];
 let scanned = 0;
 
-function scanText(where, text) {
+// nums：每行对应的真实行号（git 改动里按 @@ 头算出来的文件行号）；不给就按 1、2、3… 数
+function scanText(where, text, nums = null) {
   scanned++;
   const lines = text.replace(STRIP, '').split(/\r?\n/);
   lines.forEach((line, i) => {
+    const at = `${where}:${nums ? nums[i] : i + 1}`;
     for (const r of [...RULES, ...privRe]) {
       r.re.lastIndex = 0;
       if (!r.re.test(line)) continue;
       const m = line.match(new RegExp(r.re.source, r.re.flags.replace('g', '')))?.[0] || '';
-      if (allowed(`${where}:${i + 1}`, r.name)) { passed.push(`${where}:${i + 1} [${r.name}]`); continue; }
-      hits.push({ where: `${where}:${i + 1}`, rule: r.name, sample: r.show || (m.length > 6 ? m.slice(0, 3) + '…' + m.slice(-2) : m) });
+      if (allowed(at, r.name)) { passed.push(`${at} [${r.name}]`); continue; }
+      hits.push({ where: at, rule: r.name, sample: r.show || (m.length > 6 ? m.slice(0, 3) + '…' + m.slice(-2) : m) });
     }
   });
 }
@@ -108,13 +110,19 @@ if (withGit) {
   // 每次提交的改动 + 提交说明（作者名、邮箱不扫：那是 GitHub 账号本身，仓库地址里就有）
   const log = execFileSync('git', ['-C', ROOT, 'log', '--all', '-p', '--format=COMMIT %h%n%s%n%b', '--no-color'], { maxBuffer: 1 << 30 }).toString('utf8');
   // 按「提交 / 文件」切开，命中位置写成 git:<提交> <文件>，白名单也能按文件路径放行
-  let commit = '', file = '(提交说明)', buf = [];
-  const flush = () => { if (buf.length) scanText(`git:${commit} ${file}`, buf.join('\n')); buf = []; };
+  // 改动行用文件里的真实行号（新增行按新文件、删掉的行按旧文件），白名单「文件:行号」对 git 历史也管用
+  let commit = '', file = '(提交说明)', buf = [], nums = [], oldN = 0, newN = 0, inDiff = false;
+  const flush = () => { if (buf.length) scanText(`git:${commit} ${file}`, buf.join('\n'), nums); buf = []; nums = []; };
   for (const line of log.split('\n')) {
-    const c = line.match(/^COMMIT (\w+)/), d = line.match(/^diff --git a\/(.+?) b\//);
-    if (c) { flush(); commit = c[1]; file = '(提交说明)'; continue; }
-    if (d) { flush(); file = d[1]; continue; }
-    buf.push(line);
+    const c = line.match(/^COMMIT (\w+)/), d = line.match(/^diff --git a\/(.+?) b\//), h = line.match(/^@@ -(\d+)(?:,\d+)? \+(\d+)/);
+    if (c) { flush(); commit = c[1]; file = '(提交说明)'; inDiff = false; continue; }
+    if (d) { flush(); file = d[1]; inDiff = true; continue; }
+    if (h) { oldN = +h[1]; newN = +h[2]; continue; }
+    if (!inDiff) { buf.push(line); nums.push(buf.length); continue; }
+    if (/^(\+\+\+|---|index |new file|deleted file|similarity|rename |Binary )/.test(line)) continue;
+    if (line.startsWith('+')) { buf.push(line.slice(1)); nums.push(newN++); }
+    else if (line.startsWith('-')) { buf.push(line.slice(1)); nums.push(oldN++); }
+    else { oldN++; newN++; }
   }
   flush();
 }
