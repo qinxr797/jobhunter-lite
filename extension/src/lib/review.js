@@ -3,11 +3,13 @@
  *
  * 每天第一次跑「筛今天的岗位」（或者手动点「回顾」）时，把今天以前投过的每一家列出来，
  * 和 BOSS 聊天列表对上，告诉你现在是什么状态、下一步干什么：
- *   提到面试（他自己接）> HR 回了等你回 > 已读没回 > 送达没看 > 婉拒 > 51job/智联/网申（平台上看不到回复，只列出来）
+ *   提到面试（你自己接）> HR 回了等你回 > 已读没回 > 送达没看 > 婉拒 > 网申 / 没对上的
+ *   51job / 智联 读平台「我的申请 / 求职反馈 / 面试邀请」（progress.js），跟 BOSS 一样分档
  * 只读：聊天列表是 hr-inbox 读的（不点开会话），这里只做匹配和归类，不花模型钱。
  */
 import { getArchive, sameCompany, CHANNEL_NAMES } from './company-archive.js';
-import { getRuntime } from './store.js';
+import { getRuntime, getConfig } from './store.js';
+import { readProgress, progressStatus } from './progress.js';
 
 const DAY = 86400e3;
 const INTERVIEW = /面试|约面|面谈|到店|来公司|视频面|电话面|什么时候方便|哪天方便|地址发你|来一趟/;
@@ -76,12 +78,44 @@ function bossStatus(row, chat, kindOf, now) {
  * chatItems：hr-inbox 读到的整个聊天列表（含自己最后说话的）；classified：hrInbox.items（有模型分类的那部分）
  * 返回 { at, rows }，rows 按要紧程度排：level 0 最急
  */
-export async function buildReview(chatItems, classified = [], now = Date.now()) {
+export async function buildReview(chatItems, classified = [], now = Date.now(), opts = {}) {
   const today = startOfToday(now);
   const applied = await appliedBefore(today);
   const kindOf = (chat) => classified.find((x) => x.company === chat.company && x.name === chat.name)?.ai?.kind || '';
+  // 51job / 智联的投递进度（10/16 加）：读不到就退回原来的「只列出来」
+  const homeCity = ((await getConfig()).filter?.cities || [])[0] || '';
+  const prog = await readProgress({ fresh: opts.fresh }).catch((e) => ({ notes: [`51job / 智联进度没读成：${e.message}`] }));
+  const plat = { '51job': prog.job51?.items || [], zhilian: prog.zhilian?.items || [] };
+  const interviews = prog.zhilian?.interviews || [];
+  const findProg = (platform, company, title) => {
+    const same = (plat[platform] || []).filter((p) => sameCompany(p.company, company));
+    return same.find((p) => title && (p.title === title || p.title.includes(title) || title.includes(p.title))) || same[0] || null;
+  };
+  const ivOf = (company, title) => interviews.filter((v) => sameCompany(v.company, company) && (!title || !v.title || v.title === title || title.includes(v.title) || v.title.includes(title))).sort((a, b) => b.created - a.created)[0] || null;
+  // 平台上有、插件记录里没有的（脚本代投、手机上投的）也补进来：只要今天以前、30 天内的
+  for (const [platform, list] of Object.entries(plat)) {
+    for (const p of list) {
+      const at = Date.parse(String(p.appliedAt).replace(' ', 'T')) || 0;
+      if (!at || at >= today || now - at > 30 * DAY) continue;
+      if (applied.some((r) => r.platform === platform && sameCompany(r.company, p.company) && (!r.title || !p.title || r.title === p.title))) continue;
+      applied.push({ company: p.company, platform, title: p.title, salary: p.salary || '', href: p.href || '', at, hr: '' });
+    }
+  }
+  // 智联的面试邀请：投递列表里对不上的也单列（面试邀请比投递记录重要）
+  for (const v of interviews) {
+    if (!v.created || now - v.created > 30 * DAY) continue;
+    if (applied.some((r) => r.platform === 'zhilian' && sameCompany(r.company, v.company))) continue;
+    applied.push({ company: v.company, platform: 'zhilian', title: v.title, salary: '', href: '', at: Math.min(v.created, today - 1), hr: '' });
+  }
   const rows = applied.map((r) => {
     const base = { ...r, days: Math.floor((now - r.at) / DAY), channel: CHANNEL_NAMES[r.platform] || r.platform };
+    if (r.platform === '51job' || r.platform === 'zhilian') {
+      if (r.hr === 'dropped') return { ...base, state: '你放掉了', level: 5, next: '你说算了，不再跟', last: '' };
+      const p = findProg(r.platform, r.company, r.title);
+      const iv = r.platform === 'zhilian' ? ivOf(r.company, r.title) : null;
+      if (!p && !iv) return { ...base, state: '已投简历', level: 6, next: `${base.channel}「我的申请」里没对上（超过 60 天，或者名字写法不一样）`, last: '' };
+      return { ...base, ...progressStatus(p || { appliedAt: '' }, r.platform, now, iv, homeCity), href: r.href || p?.href || '', salary: r.salary || p?.salary || '', last: p ? `${base.channel}：${p.status}` : '' };
+    }
     if (r.platform !== 'boss') {
       return { ...base, state: '已投简历', level: 6, next: `${base.channel} 上看不到 HR 回复，有邀约会在平台消息里`, last: '' };
     }
@@ -90,7 +124,7 @@ export async function buildReview(chatItems, classified = [], now = Date.now()) 
     return { ...base, ...s, hrName: chat?.name || '', last: chat?.last || '', lastTime: chat?.time || '' };
   });
   rows.sort((a, b) => a.level - b.level || b.at - a.at);
-  const rec = { at: now, rows };
+  const rec = { at: now, rows, notes: prog.notes || [], progAt: prog.at || 0 };
   await chrome.storage.local.set({ review: rec });
   return rec;
 }

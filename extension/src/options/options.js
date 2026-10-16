@@ -83,7 +83,7 @@ function renderChecklist() {
   $('checklist').innerHTML = steps.map(([k, t]) => {
     const ok = !miss.some((m) => m.key === k);
     return `<span class="${ok ? 'ok' : ''}">${ok ? '✓' : '○'} ${t}</span>`;
-  }).join('') + (miss.length ? '' : '<span class="done">都填好了，保存后去侧边栏点「开始」</span>');
+  }).join('') + (miss.length ? '' : '<span class="done">都填好了，保存后去侧边栏点「开始筛选」</span>');
 }
 
 function renderCity() {
@@ -356,7 +356,7 @@ $('save').onclick = async () => {
   await load();
 
   const miss = setupMissing(saved);
-  st.textContent = miss.length ? `已保存。还差：${miss.map((m) => m.text).join('、')}` : '已保存，可以去侧边栏点「开始」了';
+  st.textContent = miss.length ? `已保存。还差：${miss.map((m) => m.text).join('、')}` : '已保存，可以去侧边栏点「开始筛选」了';
   st.className = miss.length ? 'hint err' : 'hint ok';
   setTimeout(() => (st.textContent = ''), 6000);
 };

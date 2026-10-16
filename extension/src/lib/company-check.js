@@ -16,7 +16,7 @@ import { getRuntime } from './store.js';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /** 页面里跑的：读百度结果（标题 + 摘要 + 来源网址） */
-function readBaidu() {
+export function readBaidu() {
   const t = (e) => (e?.innerText || '').replace(/\s+/g, ' ').trim();
   if (/wappass|安全验证/.test(location.href + document.title)) return { captcha: true };
   const boxes = [...document.querySelectorAll('#content_left > div')].filter((d) => d.querySelector('h3') && t(d).length > 20);
@@ -39,8 +39,8 @@ function readQcc() {
   return { text: t(box).slice(0, 600), url: box?.querySelector('a[href*="firm"], a[href*="company"]')?.href || location.href };
 }
 
-/** 后台开一个标签、等加载完、在页面里跑 fn、关标签 */
-async function readTab(url, fn, wait = 2500) {
+/** 后台开一个标签、等加载完、在页面里跑 fn（可带参数）、关标签 */
+export async function readTab(url, fn, wait = 2500, args = []) {
   const tab = await chrome.tabs.create({ url, active: false });
   try {
     for (let i = 0; i < 40; i++) {
@@ -50,7 +50,7 @@ async function readTab(url, fn, wait = 2500) {
       await sleep(400);
     }
     await sleep(wait);
-    const [r] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: fn });
+    const [r] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: fn, args });
     return r?.result || {};
   } finally {
     chrome.tabs.remove(tab.id).catch(() => {});

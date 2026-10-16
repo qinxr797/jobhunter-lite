@@ -6,49 +6,49 @@
   <link rel="stylesheet" href="panel.css" />
 </head>
 <body>
+  <!--
+    v1.1.0 界面重构（2026-10-16，新手视角挑刺后改）：三个页签 待办 / 岗位 / 进度 + 顶栏「工具」。
+    一屏只放一个实心主按钮；说明文字收进「怎么用」；长列表分段折叠。
+  -->
   <header>
     <div class="row">
       <strong>求职助手<small id="ver" class="ver"></small></strong>
       <span id="run-pill" class="pill" hidden></span>
+      <button id="btn-tools" class="ghost sm" title="查公司、面试备战包、填网申、拆招聘公告">
+        <svg class="i" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.8-3.8a6 6 0 0 1-7.9 7.9l-6.9 6.9a2.1 2.1 0 0 1-3-3l6.9-6.9a6 6 0 0 1 7.9-7.9l-3.8 3.8Z"/></svg>工具
+      </button>
       <button id="btn-options" class="ghost sm" title="设置">
         <svg class="i" viewBox="0 0 24 24"><path d="M12.2 2h-.4a2 2 0 0 0-2 2v.2a2 2 0 0 1-1 1.7l-.4.3a2 2 0 0 1-2 0l-.2-.1a2 2 0 0 0-2.7.7l-.2.4a2 2 0 0 0 .7 2.7l.2.1a2 2 0 0 1 1 1.7v.5a2 2 0 0 1-1 1.7l-.2.1a2 2 0 0 0-.7 2.7l.2.4a2 2 0 0 0 2.7.7l.2-.1a2 2 0 0 1 2 0l.4.3a2 2 0 0 1 1 1.7v.2a2 2 0 0 0 2 2h.4a2 2 0 0 0 2-2v-.2a2 2 0 0 1 1-1.7l.4-.3a2 2 0 0 1 2 0l.2.1a2 2 0 0 0 2.7-.7l.2-.4a2 2 0 0 0-.7-2.7l-.2-.1a2 2 0 0 1-1-1.7v-.5a2 2 0 0 1 1-1.7l.2-.1a2 2 0 0 0 .7-2.7l-.2-.4a2 2 0 0 0-2.7-.7l-.2.1a2 2 0 0 1-2 0l-.4-.3a2 2 0 0 1-1-1.7V4a2 2 0 0 0-2-2Z"/><circle cx="12" cy="12" r="3"/></svg>设置
       </button>
     </div>
     <div class="quota">
       <div class="bar"><div id="quota-fill"></div></div>
-      <span id="quota-text">今日 0 / 0</span>
+      <span id="quota-text">BOSS 今日 0 / 0</span>
     </div>
   </header>
 
   <div id="setup-banner" class="setup-banner" hidden></div>
 
   <nav class="tabs">
-    <button class="tab active" data-tab="today">今天</button>
-    <button class="tab" data-tab="queue">待审 <span id="badge-queue" class="badge">0</span></button>
-    <button class="tab" data-tab="campus">网申 <span id="badge-campus" class="badge">0</span></button>
-    <button class="tab" data-tab="records">记录</button>
+    <button class="tab active" data-tab="today">待办</button>
+    <button class="tab" data-tab="jobs">岗位 <span id="badge-queue" class="badge">0</span></button>
+    <button class="tab" data-tab="records">进度</button>
   </nav>
 
   <main>
-    <!-- ============ 今天 ============ -->
+    <!-- ============ 待办 ============ -->
     <div id="panel-today" class="panel active">
       <div id="today-todo" class="stats"></div>
 
-      <form id="co-quick" class="search">
-        <svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-        <input id="co-quick-name" placeholder="查公司：输入单位名字回车，看它咋样" />
-      </form>
-
       <section class="section">
-        <div class="sec-h">一键筛今天的岗位</div>
+        <div class="sec-h">筛今天的岗位</div>
         <div class="row">
-          <button id="btn-today-run" class="primary big">开始</button>
+          <button id="btn-today-run" class="primary big">开始筛选</button>
           <button id="btn-today-stop" hidden>停止</button>
         </div>
         <p id="today-status" class="status"></p>
-        <p id="today-est" class="hint" style="margin:4px 0 0"></p>
         <details class="opts">
-          <summary>筛什么（关键词、平台、每词细看几个）</summary>
+          <summary>筛什么 · <span id="today-est"></span></summary>
           <label class="wide">关键词（逗号分隔，每个词搜一轮）<input id="today-kw" placeholder="比如 新媒体运营，电商运营，市场专员" /></label>
           <div class="row wrap">
             <label class="check"><input id="today-boss" type="checkbox" /> BOSS</label>
@@ -57,94 +57,171 @@
             <label class="check" title="BOSS 只搜 500 人以上；51job 只搜上市 / 国企 / 外资 / 合资"><input id="today-big" type="checkbox" /> 只搜大单位</label>
             <label>每词细看<input id="today-per" type="number" min="1" max="30" />个</label>
           </div>
-          <p class="hint">插件自己打开你求职城市的搜索页一家家看、按你的求职标准判，全程只看不点；筛完的在「待审」，你按「投」才发。跑的时候 Chrome 别最小化。</p>
+          <p class="hint">插件自己打开你求职城市的搜索页一家家看，按你的求职标准判，只看不点。筛出来的在「岗位」里，你按「投」才发。跑的时候 Chrome 别最小化。</p>
         </details>
       </section>
 
       <section class="section">
-        <div class="sec-h">投过的回顾<span class="aside"></span><button id="btn-review-csv" class="sm ghost">导出表格</button><button id="btn-review" class="sm">回顾</button></div>
-        <p id="review-status" class="hint" style="margin:0 0 4px"></p>
-        <div id="review-list"></div>
+        <div class="sec-h">要你处理<span id="todo-aside" class="aside"></span></div>
+        <div id="todo-list"></div>
       </section>
 
       <section class="section">
-        <div class="sec-h">HR 消息<span id="inbox-status" class="aside"></span><button id="btn-inbox" class="sm">看 BOSS 新消息</button></div>
+        <div class="sec-h">BOSS 新消息<span id="inbox-status" class="aside"></span><button id="btn-inbox" class="sm">看一下</button></div>
         <div id="inbox-list"></div>
       </section>
 
       <p id="today-progress" class="hint"></p>
     </div>
 
-    <!-- ============ 待审 ============ -->
-    <div id="panel-queue" class="panel">
-      <div id="queue-list"></div>
-      <details class="section manual">
-        <summary>手动筛当前页（已经打开了 BOSS / 51job 搜索页、智联消息页时用）</summary>
-        <section class="controls">
-          <div class="row wrap">
-            <label>加载几屏 <input id="pages" type="number" min="1" max="10" value="2" /></label>
-            <label>最多看几个 <input id="max-jobs" type="number" min="1" max="100" value="15" /></label>
-            <button id="btn-run" class="primary">筛当前页</button>
-            <button id="btn-stop" disabled>停止</button>
+    <!-- ============ 岗位（社招待审 / 网申） ============ -->
+    <div id="panel-jobs" class="panel">
+      <div class="seg" role="tablist">
+        <button data-seg="queue" class="on">社招待审 <span id="seg-queue" class="n"></span></button>
+        <button data-seg="campus">网申 <span id="badge-campus" class="n"></span></button>
+      </div>
+
+      <div id="panel-queue" class="seg-panel active">
+        <div id="queue-list"></div>
+        <p id="status" class="status"></p>
+        <details class="section manual">
+          <summary>手动筛当前页（已经打开了 BOSS / 51job 搜索页、智联消息页时用）</summary>
+          <section class="controls">
+            <div class="row wrap">
+              <label>加载几屏 <input id="pages" type="number" min="1" max="10" value="2" /></label>
+              <label>最多看几个 <input id="max-jobs" type="number" min="1" max="100" value="15" /></label>
+              <button id="btn-run">筛当前页</button>
+              <button id="btn-stop" disabled>停止</button>
+            </div>
+            <div class="quick">
+              <span class="quick-label">打开大单位搜索页</span>
+              <select id="qs-kw"></select>
+              <button data-qs="boss" title="求职城市 · 公司规模 500 人以上">BOSS 500人+</button>
+              <button data-qs="51type" title="求职城市 · 公司性质：已上市 / 国企 / 外资 / 合资">51job 上市国企外资</button>
+              <button data-qs="51size" title="求职城市 · 公司规模 500 人以上">51job 500人+</button>
+            </div>
+          </section>
+        </details>
+      </div>
+
+      <div id="panel-campus" class="seg-panel">
+        <div id="campus-today" class="today"></div>
+        <div class="chips" id="campus-chips">
+          <button data-f="go">建议投</button>
+          <button data-f="soon">7 天内截止</button>
+          <button data-f="big">大单位</button>
+          <button data-f="hefei">写了求职城市</button>
+          <button data-f="all">全部</button>
+        </div>
+        <div class="row listbar">
+          <input id="campus-q" placeholder="搜公司 / 岗位" />
+          <label class="check" title="已经过了截止日期的也列出来"><input id="campus-expired" type="checkbox" /> 含已截止</label>
+        </div>
+        <div class="row listbar"><span id="campus-count" class="hint"></span><button id="btn-campus-open" class="sm ghost" title="把当前列表里有投递链接的，一次开成标签（最多 8 个），你挨个登录、填、交">一次打开这些投递页</button></div>
+        <p id="campus-status" class="status"></p>
+        <div id="campus-list"></div>
+        <details class="section">
+          <summary>公告从哪来 · 拉新的</summary>
+          <div class="campus-head">
+            <div id="campus-err" class="warn-box" hidden></div>
+            <div id="campus-src" class="hint"></div>
+            <div class="row wrap">
+              <button id="btn-campus-pull" title="一天最多拉 2 次（每天会自动拉 1 次）">拉取公告</button>
+              <button id="btn-campus-screen">AI 筛一遍</button>
+              <button id="btn-campus-stop" hidden>停止</button>
+            </div>
           </div>
-          <div class="quick">
-            <span class="quick-label">打开大单位搜索页</span>
-            <select id="qs-kw"></select>
-            <button data-qs="boss" title="求职城市 · 公司规模 500 人以上">BOSS 500人+</button>
-            <button data-qs="51type" title="求职城市 · 公司性质：已上市 / 国企 / 外资 / 合资">51job 上市国企外资</button>
-            <button data-qs="51size" title="求职城市 · 公司规模 500 人以上">51job 500人+</button>
-          </div>
-        </section>
-      </details>
-      <p id="status" class="status"></p>
+        </details>
+      </div>
     </div>
 
-    <!-- ============ 网申 ============ -->
-    <div id="panel-campus" class="panel">
+    <!-- ============ 进度 ============ -->
+    <div id="panel-records" class="panel">
+      <section class="section">
+        <div class="sec-h">投过的每一家<span class="aside"></span><button id="btn-review-csv" class="sm ghost">导出表格</button><button id="btn-review" class="sm">刷新</button></div>
+        <p id="review-status" class="hint"></p>
+        <div id="review-list"></div>
+      </section>
+      <section class="section">
+        <div class="sec-h">今天投的</div>
+        <div id="done-list"></div>
+      </section>
+      <div id="archive-list"></div>
+      <details class="section">
+        <summary>高级（排查问题用）</summary>
+        <div class="tool">
+          <h4>运行日志</h4>
+          <div id="panel-log"></div>
+        </div>
+        <div class="tool">
+          <h4>页面体检</h4>
+          <p class="hint">BOSS 改版后抓不到数据时，在对应页面点这个，把结果发给做插件的人就能修。</p>
+          <button id="btn-health" class="sm">在当前页体检</button>
+          <pre id="health-out"></pre>
+        </div>
+        <div class="tool">
+          <h4>数据</h4>
+          <p class="hint">「看过的岗位」清掉之后，这些岗位会重新参与筛选。</p>
+          <button id="btn-export" class="sm">导出今日报告</button>
+          <button id="btn-clear-seen" class="sm danger">清空看过的岗位</button>
+        </div>
+      </details>
+    </div>
+
+    <!-- ============ 工具（顶栏按钮进） ============ -->
+    <div id="panel-tools" class="panel">
+      <button class="link back" data-back>← 返回</button>
+
+      <form id="co-quick" class="search">
+        <svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="co-quick-name" placeholder="查公司：输入单位名字回车" />
+      </form>
+
+      <details id="iv-details" class="af-box">
+        <summary><b>面试备战包</b><span class="sum-note">约到面试后，出一份复习资料</span></summary>
+        <div class="row">
+          <input id="iv-company" placeholder="公司" />
+          <input id="iv-title" placeholder="岗位" />
+        </div>
+        <textarea id="iv-jd" rows="2" placeholder="岗位 JD（可不填：插件里存过这家的会自动带上）"></textarea>
+        <div class="row"><button id="btn-iv" class="primary">出备战包</button><span id="iv-history" class="hint"></span></div>
+        <p id="iv-status" class="status"></p>
+        <p class="hint">搜公司业务和网上面经，按你的简历写自我介绍和答题思路，只用你的真经历。一份一两分钟、几分钱。</p>
+      </details>
+
       <details id="af-details" class="af-box">
-        <summary><b>填这一页网申</b>　在官网表单页展开这里，只填不交</summary>
-        <div class="row wrap">
+        <summary><b>填这一页网申</b><span class="sum-note">在官网表单页用，只填不交</span></summary>
+        <div class="row">
           <input id="af-company" placeholder="公司" />
           <input id="af-position" placeholder="岗位" />
         </div>
         <div class="row wrap">
           <button id="btn-af-fill" class="primary">填这一页</button>
-          <button id="btn-af-refill" title="不用上次的识别结果，重新让模型认一遍">重新识别</button>
-          <button id="btn-af-remember" title="把你手填的素材库外字段（身份证、紧急联系人…）存在本机，下次自动填">记住这页我填的</button>
+          <button id="btn-af-refill" title="不用上次的识别结果，重新让 AI 认一遍">重新识别</button>
+          <button id="btn-af-remember" class="ghost" title="把你手填的素材库外字段（身份证、紧急联系人…）存在本机，下次自动填">记住这页我填的</button>
         </div>
-        <p class="hint">提交 / 投递 / 下一步永远你自己点。多页的网申，点完下一步再按一次「填这一页」。</p>
+        <p class="hint">提交、投递、下一步永远你自己点。多页的网申，点完下一步再按一次「填这一页」。</p>
         <p id="af-status" class="status"></p>
         <div id="ds-line" class="ds-line"></div>
         <div id="af-report"></div>
       </details>
       <div id="af-todo"></div>
-      <div id="campus-today" class="today"></div>
-      <div class="chips" id="campus-chips">
-        <button data-f="all" class="on">全部</button>
-        <button data-f="go">建议投</button>
-        <button data-f="big">大单位</button>
-        <button data-f="soon">7 天内截止</button>
-        <button data-f="hefei">写了求职城市</button>
-        <input id="campus-q" placeholder="搜公司 / 岗位" />
-      </div>
-      <div class="row wrap listbar"><button id="btn-campus-open" title="把当前筛出来的、有投递链接的，一次开成标签（最多 8 个），你挨个登录、填、交">打开这些的投递页</button><span id="campus-count" class="hint"></span></div>
-      <div id="campus-list"></div>
-      <details class="section">
-        <summary>网申公告从哪来</summary>
-        <div class="campus-head">
-          <div id="campus-err" class="warn-box" hidden></div>
-          <div id="campus-src" class="hint"></div>
-          <div class="row wrap">
-            <button id="btn-campus-pull" title="一天最多拉 2 次（每天会自动拉 1 次）">拉取公告</button>
-            <button id="btn-campus-screen" class="primary">模型初筛</button>
-            <button id="btn-campus-stop" hidden>停止初筛</button>
-          </div>
-          <p id="campus-status" class="status"></p>
+
+      <details id="nt-details" class="af-box">
+        <summary><b>拆招聘公告</b><span class="sum-note">学校、医院、协会的公告页，看你符不符合</span></summary>
+        <div class="row wrap">
+          <button id="btn-nt" class="primary">拆当前页</button>
+          <button id="btn-nt-csv" class="ghost" hidden>导出表格</button>
         </div>
+        <label class="hint nt-file">附件要验证码、下不下来的，自己下到电脑上，在这里选上再点「拆当前页」：<input id="nt-files" type="file" multiple accept=".pdf,.xls,.xlsx,.doc,.docx,.et" /></label>
+        <p class="hint">读公告正文、页面表格和附件（PDF / Excel / Word），AI 按你的简历逐个岗位对条件，要不要笔试也会标出来。</p>
+        <p id="nt-status" class="status"></p>
+        <div id="nt-result"></div>
+        <div id="nt-history" class="hint"></div>
       </details>
     </div>
 
-    <!-- ============ 查公司（从「今天」搜索框、卡片上的「查公司」进来） ============ -->
+    <!-- ============ 查公司（从工具页、卡片按钮进） ============ -->
     <div id="panel-company" class="panel">
       <button class="link back" data-back>← 返回</button>
       <div class="af-box">
@@ -153,40 +230,15 @@
           <input id="co-name" placeholder="输入单位名字，写全称更准" />
           <button id="btn-co" class="primary">查</button>
         </div>
-        <p class="hint">后台开几个百度搜索页读结果（企查查你登着就顺带看），DeepSeek 按你的求职标准写结论，每条带出处。一次三十秒左右、一两分钱。</p>
+        <p class="hint">后台开几个百度搜索页读结果（企查查你登着就顺带看），AI 按你的求职标准写结论，每条带出处。一次半分钟左右、一两分钱。</p>
         <p id="co-status" class="status"></p>
       </div>
       <div id="co-result"></div>
       <div id="co-history"></div>
     </div>
-
-    <!-- ============ 记录 ============ -->
-    <div id="panel-records" class="panel">
-      <div id="done-list"></div>
-      <div id="archive-list"></div>
-      <details class="section">
-        <summary>运行日志</summary>
-        <div id="panel-log"></div>
-      </details>
-      <details class="section">
-        <summary>工具</summary>
-        <div class="tool">
-          <h4>选择器体检</h4>
-          <p class="hint">BOSS 改版后抓不到数据时，在对应页面点这个，把结果发给做插件的人就能修。</p>
-          <button id="btn-health">在当前页体检</button>
-          <pre id="health-out"></pre>
-        </div>
-        <div class="tool">
-          <h4>数据</h4>
-          <p class="hint">「去重记录」是已经评估过的岗位，清掉之后这些岗位会重新参与筛选。</p>
-          <button id="btn-export">导出今日报告</button>
-          <button id="btn-clear-seen" class="danger">清空去重记录</button>
-        </div>
-      </details>
-    </div>
   </main>
 
-  <!-- 黑话翻译官：普通脚本先挂好全局 JDD，panel.js 里给「待审」卡片用 -->
+  <!-- 黑话翻译官：普通脚本先挂好全局 JDD，panel.js 里给「岗位」卡片用 -->
   <script src="../vendor/jd-decoder/rules.js"></script>
   <script src="../vendor/jd-decoder/engine.js"></script>
   <script src="../vendor/jd-decoder/preset.js"></script>

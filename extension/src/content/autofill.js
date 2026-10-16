@@ -366,6 +366,8 @@
         value: '', options: null,
         accept: c.kind === 'file' ? (el.getAttribute('accept') || '') : undefined,
         inputType: inner?.getAttribute('type') || '',
+        // 飞书招聘 / 字节这类表单每个字段带机器名（data-form-field-name="email"），比认中文标签稳（照 Tabbit 的字节简历配方加的）
+        fieldName: fieldNameOf(el, c.kind),
       };
       // 必填星号在题目那一行的（真 Moka：.required-asterisk）
       if (!f.required) f.required = !!titleAbove(c.el)?.star;
@@ -405,8 +407,49 @@
       if (b.parentElement && /^[+＋]?\s*(添加|新增|增加)/.test(norm(b.parentElement.innerText || '')) && b.parentElement.innerText.length <= 14) continue; // 只要最里面那层
       adds.push({ ref: refOf(b), text: t, section: sectionOf(b).name });
     }
-    return { url: location.href, title: document.title, fields, submits, adds, frame: window === top ? 'top' : 'iframe' };
+    return { url: location.href, title: document.title, fields, submits, adds, gate: pageGate(), frame: window === top ? 'top' : 'iframe' };
   }
+
+  function fieldNameOf(el, kind) {
+    if (kind === 'radio' || kind === 'checkbox') return '';
+    const own = el.closest('[data-form-field-name]') || (el.matches(FAKE_SELECT) ? el.querySelector('[data-form-field-name]') : null);
+    return own?.dataset.formFieldName || '';
+  }
+
+  // ---------------------------------------------------------------- 页面闸门：没登录 / 弹验证码 / 访问太频繁，就别填了
+  // 照 Tabbit 字节简历配方的写法：填之前先看页面状态，挡住了直接告诉你，而不是扫出 0 个框或往遮罩后面乱填
+  const CAPTCHA_SEL = '[class*="captcha"], [class*="Captcha"], [id*="captcha"], .geetest_panel, .geetest_box, [class*="nc_wrapper"], [class*="slider-verify"], [class*="verify-wrap"], [class*="verifyWrap"], iframe[src*="captcha"]';
+  const LOGIN_SEL = '.login-container, .login-mask, [class*="login-modal"], [class*="loginModal"], [class*="login-dialog"], [class*="loginDialog"], [class*="LoginDialog"], [class*="login-pop"]';
+  const ERRPAGE_SEL = '#error-screen, .error-container, [class*="error-page"], [class*="errorPage"], [class*="exception"]';
+  function pageGate() {
+    const big = (e) => visible(e) && e.getBoundingClientRect().width >= 150 && e.getBoundingClientRect().height >= 60;
+    const cap = [...document.querySelectorAll(CAPTCHA_SEL)].find(big);
+    if (cap) return { code: 'captcha', msg: textOf(cap).slice(0, 80) };
+    const login = [...document.querySelectorAll(LOGIN_SEL)].find((e) => big(e) && /登录|登陆|sign in|log in/i.test(textOf(e)));
+    if (login) return { code: 'login', msg: textOf(login).slice(0, 80) };
+    const err = [...document.querySelectorAll(ERRPAGE_SEL)].find(visible);
+    if (err && /频繁|too many requests|rate limit|稍后再试/i.test(textOf(err))) return { code: 'rate', msg: textOf(err).slice(0, 80) };
+    return null;
+  }
+
+  // ---------------------------------------------------------------- 网站自己的红字（必填未填、格式不对）
+  const SITE_ERR_SEL = '.ant-form-item-explain-error, .el-form-item__error, .ivu-form-item-error-tip, .arco-form-item-message-error, .t-input__extra--error, .n-form-item-feedback--error, .ud-formily-item-feedback-status-error, [class*="error-tip"], [class*="errorTip"], [class*="error-msg"], [class*="errorMsg"], [class*="feedback-error"], [class*="field-error"]';
+  function siteErrors() {
+    const list = [];
+    for (const c of lastScan) {
+      const ref = c.el.dataset.jfzRef;
+      if (!ref || !c.el.isConnected) continue;
+      // 只在「只装着这一个框」的那几层里找，别把隔壁字段的红字算到它头上
+      let node = c.el;
+      for (let hop = 0; node && hop < 5; hop++, node = node.parentElement) {
+        if (hop > 0 && controlsIn(node) > 1) break;
+        const hit = [...node.querySelectorAll(SITE_ERR_SEL)].find((e) => visible(e) && textOf(e) && textOf(e).length <= 60);
+        if (hit) { list.push({ ref, msg: textOf(hit) }); break; }
+      }
+    }
+    return { list };
+  }
+
 
   function contextOf(el) {
     let box = el;
@@ -688,6 +731,7 @@
     clickAdd: (p) => clickAdd(p.ref),
     clearMarks: () => clearMarks(),
     harvest: () => harvest(),
+    siteErrors: () => siteErrors(),
     ping: () => ({ ok: true, url: location.href, top: window === top }),
   };
   chrome.runtime.onMessage.addListener((msg, _s, reply) => {

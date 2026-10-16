@@ -40,7 +40,11 @@ async function guessJob(tab) {
     } catch { /* 投递链接不是网址 */ }
   }
   // 在网申页（投递链接对得上、或者是常见网申系统）就把「填网申」展开，省一次点击
-  if (best || ATS.test(u.host + u.pathname)) $('af-details').open = true;
+  // 「填网申」在「工具」页里：在网申页时顶栏「工具」亮个小点提醒（不自动跳页，免得打断你正在看的）
+  const onAts = Boolean(best || ATS.test(u.host + u.pathname));
+  if (onAts) $('af-details').open = true;
+  $('btn-tools')?.classList.toggle('ping', onAts);
+  if ($('btn-tools')) $('btn-tools').title = onAts ? '这页是网申表单，点这里「填这一页网申」' : '查公司、面试备战包、填网申、拆招聘公告';
   if (best && !$('af-company').dataset.edited) {
     $('af-company').value = best.x.company;
     $('af-position').value = (best.x.ai?.matched_positions || [])[0] || '';
@@ -53,7 +57,8 @@ const commonPrefix = (a, b) => { let i = 0; while (i < a.length && a[i] === b[i]
 
 async function renderCost() {
   const u = await getDeepSeekUsage();
-  $('ds-line').textContent = `今日 DeepSeek 花费约 ¥${u.today.cny.toFixed(3)}（${u.today.calls} 次，缓存命中 ${u.today.hit} / 未命中 ${u.today.miss} / 输出 ${u.today.out} tokens）`;
+  $('ds-line').textContent = `今天 AI 花了约 ¥${u.today.cny.toFixed(2)}（${u.today.calls} 次）`;
+  $('ds-line').title = `缓存命中 ${u.today.hit} / 未命中 ${u.today.miss} / 输出 ${u.today.out} tokens`;
   try {
     const b = await getDeepSeekBalance(await getConfig());
     if (b) $('ds-line').textContent += ` ｜ 余额 ¥${b.total.toFixed(2)}`;

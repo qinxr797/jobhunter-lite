@@ -118,6 +118,8 @@ export function sectionKind(section) {
  * 只管「素材库里写死、不需要理解」的：姓名、性别、手机、邮箱、学校、专业、学历、毕业时间、期望城市、期望薪资、政治面貌。
  */
 export function localRule(f, facts) {
+  const byName = fieldNameRule(f, facts);
+  if (byName) return byName;
   const l = norm(f.label).replace(/[*＊:：\s]/g, '');
   const sk = sectionKind(f.section);
   const B = facts.basic;
@@ -154,6 +156,39 @@ export function localRule(f, facts) {
     return r(E.graduation, 'education[0].graduation');
   }
   return null;
+}
+
+/**
+ * 按字段机器名出值（飞书招聘 / 字节社招这类 ud-formily 表单，字段带 data-form-field-name）。
+ * 机器名来自 Tabbit 浏览器内置的字节简历配方（10/16 拆的）。认不出返回 null，接着走中文标签那套。
+ * 经历类（公司 / 职位）只在框是空的时候填：网站解析简历回填的那组未必和素材库同一段，只改公司会拼出一条四不像。
+ */
+const sk0 = (f) => sectionKind(f.section);
+const FIELD_NAMES = {
+  name: (F, f) => (sk0(f) === 'project' ? (f.value ? null : listItem(F, f, 'projects')?.org) : !sk0(f) || sk0(f) === 'basic' ? F.basic.name : null),
+  mobile: (F, f) => (f.kind === 'text' && (!sk0(f) || sk0(f) === 'basic') ? F.basic.phone : null),     // 同名的区号下拉不填
+  email: (F, f) => (!sk0(f) || sk0(f) === 'basic' ? F.basic.email : null),
+  preferred_city_list: (F) => F.intent.city,
+  school: (F, f) => (f.index > 1 ? null : F.education[0].school),
+  field_of_study: (F, f) => (f.index > 1 ? null : F.education[0].major),
+  degree: (F, f) => (f.index > 1 ? null : F.education[0].degree || null),
+  company: (F, f) => (f.value || sk0(f) !== 'intern' ? null : listItem(F, f, 'experiences')?.org),
+  title: (F, f) => (f.value || sk0(f) !== 'intern' ? null : listItem(F, f, 'experiences')?.role),
+  role: (F, f) => (f.value || sk0(f) !== 'project' ? null : listItem(F, f, 'projects')?.role),
+  self_evaluation: (F) => F.self_evaluation || null,
+};
+const FIELD_SOURCE = { name: 'basic.name', mobile: 'basic.phone', email: 'basic.email', preferred_city_list: 'intent.city', school: 'education[0].school', field_of_study: 'education[0].major', degree: 'education[0].degree', self_evaluation: 'self_evaluation' };
+function listItem(F, f, list) { return F[list]?.[Math.max(0, (f.index || 1) - 1)]; }
+function fieldNameRule(f, facts) {
+  const fn = f.fieldName;
+  if (!fn || !Object.hasOwn(FIELD_NAMES, fn) || f.kind === 'file') return null;
+  const value = FIELD_NAMES[fn](facts, f);
+  if (!value) return null;
+  const i = Math.max(0, (f.index || 1) - 1);
+  const source = FIELD_SOURCE[fn] && !(fn === 'name' && sectionKind(f.section) === 'project')
+    ? FIELD_SOURCE[fn]
+    : `${fn === 'company' || fn === 'title' ? 'experiences' : 'projects'}[${i}].${fn === 'company' || fn === 'name' ? 'org' : 'role'}`;
+  return { value, source };
 }
 
 // ---------------------------------------------------------------- 格式校验

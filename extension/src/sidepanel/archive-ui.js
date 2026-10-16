@@ -17,7 +17,7 @@ async function render() {
       <td><b>${esc(c.name)}</b></td>
       <td>${Object.entries(c.ch || {}).map(([k, v]) => `<span class="ch" title="${esc(v.title || '')}">${esc(CHANNEL_NAMES[k] || k)} ${md(v.at)}</span>`).join('')}</td>
       <td><button data-arch="${esc(c.name)}">查公司</button></td></tr>`).join('')}</table>`
-    : '<p class="empty">还没有。网申按「已投」、平台上投成功的都会记进来。</p>'}</div>`;
+    : '<p class="empty">还没有。网申按「我投了」、平台上投成功的都会记进来。</p>'}</div>`;
 }
 
 export function initArchive() {

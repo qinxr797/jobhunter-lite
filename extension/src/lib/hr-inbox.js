@@ -96,15 +96,16 @@ ${lines}
 }
 
 /** 读 + 分类 + 把拒绝 / 约面试记进公司档案，存起来给「今天」页用 */
-export async function refreshInbox(config) {
+export async function refreshInbox(config, opts = {}) {
   const items = await readBossInbox();
   const done = await classifyInbox(items, config);
   for (const x of done) {
     if (x.ai?.kind === '拒绝') await recordChannel(x.company, 'boss', { title: x.title, hr: 'rejected' }).catch(() => {});
     if (x.ai?.kind === '约面试') await recordChannel(x.company, 'boss', { title: x.title, hr: 'interview' }).catch(() => {});
   }
-  const rec = { at: Date.now(), total: items.length, waitingMe: done.length, items: done };
+  // chatItems：整个聊天列表，BOSS 下次读失败时回顾还能用它
+  const rec = { at: Date.now(), total: items.length, waitingMe: done.length, items: done, chatItems: items };
   await chrome.storage.local.set({ hrInbox: rec });
-  await buildReview(items, done).catch(() => {});   // 顺手更新「投过的回顾」
+  await buildReview(items, done, Date.now(), opts).catch(() => {});   // 顺手更新「投过的回顾」（含 51job / 智联进度）
   return rec;
 }

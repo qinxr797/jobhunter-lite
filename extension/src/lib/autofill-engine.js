@@ -217,14 +217,17 @@ async function fillPageInner(opts) {
   let submits = [];
   const t0 = Date.now();
 
+  let gates = [];
   async function scanAll() {
     const out = [];
     submits = [];
+    gates = [];
     const adds = [];
     for (const fr of frames) {
       let res;
       try { res = await ask(tabId, fr.frameId, 'scan'); } catch { continue; }
       if (!res?.fields) continue;
+      if (res.gate) gates.push(res.gate);
       submits.push(...(res.submits || []));
       for (const a of res.adds || []) adds.push({ ...a, frameId: fr.frameId });
       for (const f of res.fields) {
@@ -238,6 +241,12 @@ async function fillPageInner(opts) {
   // ---- 0. 扫一遍，素材库条数比页面组数多的分块点「添加」补齐（第 13 条 a：几段经历就几组）
   say('扫字段…');
   let { fields, adds } = await scanAll();
+  // 页面被挡住了就别填（10/16 照 Tabbit 字节简历配方加的）：验证码、访问太频繁直接停；登录框只在几乎扫不到字段时才算挡住（页头的登录入口不算）
+  const gate = gates.find((g) => g.code === 'captcha' || g.code === 'rate') || (fields.length < 3 && gates.find((g) => g.code === 'login'));
+  if (gate) {
+    const why = { captcha: '页面弹出了验证码 / 滑块，你先过一下', rate: '网站说操作太频繁，歇几分钟', login: '这一页要先登录' }[gate.code];
+    throw new Error(`${why}，弄完再点「填这一页」${gate.msg ? `（页面上写着：${gate.msg.slice(0, 40)}）` : ''}`);
+  }
   if (!fields.length) throw new Error('这一页没扫到能填的框。要是表单在弹窗 / 下一步里，打开后再点「填这一页」');
 
   // 先传附件：Moka 这类网站传了简历会自动解析、回填表单（9/28 真 Moka 实测：解析把入学时间也写成了 2026-06），
@@ -314,6 +323,10 @@ async function fillPageInner(opts) {
       }
     } catch (e) { warnings.push(`逐行核对没跑成：${e.message}`); }
   }
+
+  // ---- 网站自己的红字：回读值对得上不等于网站收了，必填没填 / 格式不对的原话读回来标红（10/16 照 Tabbit 字节简历配方加的）
+  await sleep(300);
+  await collectSiteErrors();
 
   // ---- 上色、清理
   await paintAll();
@@ -692,6 +705,23 @@ async function fillPageInner(opts) {
         } catch (e) { r.notes.push(`近义栏目补写失败：${e.message}`); }
       }
     }
+  }
+
+  async function collectSiteErrors() {
+    let n = 0;
+    for (const fr of frames) {
+      let res;
+      try { res = await ask(tabId, fr.frameId, 'siteErrors'); } catch { continue; }
+      for (const it of res?.list || []) {
+        const r = all.get(`${fr.frameId}:${it.ref}`);
+        if (!r) continue;
+        r.color = 'red';
+        r.siteError = it.msg;
+        r.notes.push(`网站提示：${it.msg}`);
+        n++;
+      }
+    }
+    if (n) warnings.push(`网站自己标了 ${n} 处红字（必填没填 / 格式不对），已标红，下面列表和鼠标悬停都能看到原话`);
   }
 
   async function paintAll() {

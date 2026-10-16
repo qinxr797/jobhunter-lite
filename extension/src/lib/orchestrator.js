@@ -380,7 +380,7 @@ export async function run(opts = {}) {
       if (i < limit - 1 && !me.stop) await sleep(P.detail ? rand(4000, 9000) : rand(500, 1500));   // 9/28 模型换 DeepSeek 后只剩这点间隔，还留着防 BOSS 风控
     }
 
-    await log('ok', `${P.name} 本轮筛完：新进列表 ${listedThisRun} 家，去「待审」里审`);
+    await log('ok', `${P.name} 本轮筛完：新进列表 ${listedThisRun} 家，去「岗位」里审`);
     return { listed: listedThisRun, found: candidates.length };
   } catch (e) {
     await log('error', `${P.name} 筛选中断：${e.message}`);

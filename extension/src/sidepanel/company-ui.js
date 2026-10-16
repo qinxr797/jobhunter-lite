@@ -3,6 +3,7 @@
  * 网申卡片、筛选结果卡片上的「查公司」按钮也走这里（openCompany）。
  */
 import { getConfig } from '../lib/store.js';
+import { showPanel } from './nav.js';
 import { checkCompany, checkHistory } from '../lib/company-check.js';
 
 const $ = (id) => document.getElementById(id);
@@ -60,15 +61,13 @@ async function run(name) {
 
 /** 从别的卡片跳过来查：切到「查公司」页、填名字、开查 */
 export function openCompany(name) {
-  document.querySelectorAll('.tab').forEach((x) => x.classList.remove('active'));
-  document.querySelectorAll('.panel').forEach((x) => x.classList.toggle('active', x.id === 'panel-company'));
-  document.querySelector('main').scrollTop = 0;
+  showPanel('company');
   $('co-name').value = name;
   run(name);
 }
 
 export function initCompany() {
-  // 「今天」页顶上的搜索框
+  // 「工具」页顶上的搜索框
   $('co-quick').addEventListener('submit', (e) => { e.preventDefault(); const n = $('co-quick-name').value.trim(); if (n) { openCompany(n); $('co-quick-name').value = ''; } });
   $('btn-co').onclick = () => run($('co-name').value);
   $('co-name').addEventListener('keydown', (e) => { if (e.key === 'Enter') run($('co-name').value); });

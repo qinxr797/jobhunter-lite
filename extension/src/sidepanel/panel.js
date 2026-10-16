@@ -7,6 +7,9 @@ import { initAutofill } from './autofill-ui.js';
 import { initCompany, openCompany } from './company-ui.js';
 import { initArchive } from './archive-ui.js';
 import { initToday, getDaily } from './today-ui.js';
+import { initNotice } from './notice-ui.js';
+import { initInterview } from './interview-ui.js';
+import { initNav, showPanel } from './nav.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -43,8 +46,11 @@ async function render(force = true) {
 
   const queue = rt.queue || [];
   const nq = queue.filter((q) => (q.status || '待审核') === '待审核').length;
-  $('badge-queue').textContent = String(nq);
-  $('badge-queue').toggleAttribute('data-zero', !nq);
+  // 页签和「社招待审」上的数 = 列表里一共几条（跟「全部」对得上，没投成的也算，要你处理）
+  const nAll = queue.filter((q) => q.status !== '排队' && q.status !== '发送中').length;
+  $('badge-queue').textContent = String(nAll);
+  $('badge-queue').toggleAttribute('data-zero', !nAll);
+  $('seg-queue').textContent = nAll ? String(nAll) : '';
   // 顶栏状态：在筛 / 在发
   const pill = $('run-pill');
   const ptxt = isRunning() ? `筛选中：${runningPlatforms().map((x) => PLATFORM_NAMES[x] || x).join('、')}` : isSending() ? '正在一家家发' : '';
@@ -97,7 +103,7 @@ const ICON = {
 
 function renderQueueInner(queue, config, box) {
   if (!queue.length) {
-    box.innerHTML = '<p class="empty">列表是空的。<br>去「今天」点「开始」，插件会自己把 BOSS / 51job / 智联筛一遍，筛出来的排在这里等你审。</p>';
+    box.innerHTML = '<p class="empty">还没有要审的岗位。<br><a href="#" data-goto="today">去「待办」点「开始筛选」</a>，筛出来的排在这里等你审。</p>';
     return;
   }
   const pending = (q) => (q.status || '待审核') === '待审核';
@@ -116,14 +122,13 @@ function renderQueueInner(queue, config, box) {
   box.innerHTML = `
     <div class="qbar">
       <div class="chips">
-        ${chip('verdict', 'all', `全部 ${queue.length}`)}${chip('verdict', 'go', `建议投 ${cnt.go}`)}${chip('verdict', 'ask', `等你定 ${cnt.ask}`)}${cnt.sending + cnt.failed ? chip('verdict', 'busy', `发送中 / 失败 ${cnt.sending + cnt.failed}`) : ''}
+        ${chip('verdict', 'all', `全部 ${queue.length - cnt.sending}`)}${chip('verdict', 'go', `建议投 ${cnt.go}`)}${chip('verdict', 'ask', `待你决定 ${cnt.ask}`)}${cnt.sending + cnt.failed ? chip('verdict', 'busy', `${cnt.failed ? `没投成 ${cnt.failed}` : ''}${cnt.failed && cnt.sending ? ' · ' : ''}${cnt.sending ? `发送中 ${cnt.sending}` : ''}`) : ''}
         ${plats.length > 1 ? `<span class="hint" style="margin:0 2px">｜</span>${chip('plat', 'all', '全部平台')}${plats.map((p) => chip('plat', p, PLATFORM_NAMES[p])).join('')}` : ''}
       </div>
       <div class="row" style="width:100%">
-        <button class="primary" data-act="approve-picked" data-id="*" ${picked.size ? '' : 'disabled'}>投选中的 ${picked.size || ''}</button>
-        ${cnt.go > 1 ? `<button data-act="pick-go" data-id="*">勾上全部建议投</button>` : ''}
-        ${picked.size ? `<button class="ghost" data-act="pick-none" data-id="*">清空勾选</button>` : ''}
-        <span class="sel">点一行展开看理由和开场白</span>
+        ${picked.size ? `<button class="primary" data-act="approve-picked" data-id="*">投选中的 ${picked.size} 家</button><button class="ghost" data-act="pick-none" data-id="*">清空勾选</button>`
+          : cnt.go > 1 ? `<button data-act="pick-go" data-id="*">勾上全部建议投</button>` : ''}
+        <span class="sel">点一行看理由和开场白</span>
       </div>
     </div>` + (shown.length ? shown.map((it) => row(it, config)).join('') : '<p class="empty">这个筛选下没有。</p>');
 
@@ -146,22 +151,23 @@ function row(it, config) {
   const plat = j.platform || 'boss';
   const isBoss = plat === 'boss';
   const canPick = st === '待审核' && !it.greetedDefault;
-  const stateText = { 排队: '已按投，排队中', 发送中: '正在发…', 失败: '没投成' }[st] || '';
+  const stateText = { 排队: '已按投，排队中', 发送中: '正在发…', 失败: '没投成，点开重试' }[st] || '';
   const firstFlag = (it.red_flags || [])[0];
   const buttons = locked
     ? (st === '排队' ? `<button data-act="unapprove" data-id="${id}">撤回</button>` : '')
     : `<button class="primary" data-act="approve" data-id="${id}" ${it.greetedDefault ? 'disabled' : ''}>${st === '失败' ? '再投一次' : '投'}</button>
        <button data-act="drop" data-id="${id}">不投</button>
-       <button class="ghost" data-act="blacklist" data-id="${id}" title="以后这家公司的岗位都不再看">拉黑公司</button>`;
+`;
   return `<div class="job ${cls} ${opened.has(j.jobId) ? 'open' : ''} ${picked.has(j.jobId) ? 'sel' : ''}" data-row="${id}">
     <div class="jrow" data-toggle="${id}">
       <span class="ck">${canPick ? `<input type="checkbox" data-pick="${id}" ${picked.has(j.jobId) ? 'checked' : ''} title="勾上，一起投">` : ''}</span>
       <div>
-        <div class="t">${platTag(plat, j.invite)}${tierTag(it.company_tier, it.tier_why)}${verdictTag(it.verdict)}${jargonTag(jargonOf(j))}${esc(j.title)}</div>
-        <div class="m">${esc(j.company)} · ${esc(j.salary || '薪资没读到')}${j.city ? ' · ' + esc(String(j.city).split('·')[0]) : ''}${j.hrActive ? ' · ' + esc(j.hrActive) : ''}${stateText ? ` · <b class="state ${st === '失败' ? 'failed' : 'queued'}">${stateText}</b>` : ''}</div>
+        <div class="t">${esc(j.title)}</div>
+        <div class="m">${esc(j.company)} · ${esc(j.salary || '薪资没读到')}${j.city ? ' · ' + esc(String(j.city).split('·')[0]) : ''}</div>
+        <div class="tags">${verdictTag(it.verdict)}${tierTag(it.company_tier, it.tier_why)}${jargonTag(jargonOf(j))}<span class="src">${esc(PLATFORM_NAMES[plat] || plat)}${j.invite ? ' · HR 邀请' : ''}${j.hrActive ? ' · ' + esc(j.hrActive) : ''}</span>${stateText ? `<b class="state ${st === '失败' ? 'failed' : 'queued'}">${stateText}</b>` : ''}</div>
         ${!opened.has(j.jobId) && (it.reasons || [])[0] ? `<div class="one-line">${esc(it.reasons[0].slice(0, 90))}${firstFlag ? ` <span class="flags">${ICON.warn} ${esc(firstFlag.slice(0, 40))}</span>` : ''}</div>` : ''}
       </div>
-      <div class="s ${(it.match_score || 0) >= 75 ? 'hi' : (it.match_score || 0) >= 55 ? 'mid' : ''}">${it.match_score ?? ''}<small>匹配分</small></div>
+      <div class="s ${(it.match_score || 0) >= 75 ? 'hi' : (it.match_score || 0) >= 55 ? 'mid' : ''}" title="AI 按你的求职标准打的合适度，满分 100">${it.match_score ?? ''}<small>合适度</small></div>
     </div>
     <div class="jbody">
       ${it.error ? `<div class="state-note">${esc(it.error)}</div>` : ''}
@@ -175,9 +181,12 @@ function row(it, config) {
       <div class="charcount"><span data-cc="${id}">${(greeting || '').length}</span> / ${config.greeting.maxChars} 字</div>` : '<div class="state-note">这个平台直接投简历，不发开场白</div>'}
       <div class="row">
         ${buttons}
-        <button data-act="open" data-id="${id}">看岗位 ${ICON.ext}</button>
-        <button data-act="tailor" data-id="${id}">定制简历</button>
-        <button data-act="company" data-id="${id}">查公司</button>
+        <button class="ghost" data-act="open" data-id="${id}">看岗位 ${ICON.ext}</button>
+        <details class="more"><summary>更多</summary><div class="menu">
+          <button class="ghost" data-act="tailor" data-id="${id}">定制简历</button>
+          <button class="ghost" data-act="company" data-id="${id}">查公司</button>
+          ${locked ? '' : `<button class="ghost danger" data-act="blacklist" data-id="${id}" title="以后这家公司的岗位都不再看">拉黑这家公司</button>`}
+        </div></details>
       </div>
     </div>
   </div>`;
@@ -200,10 +209,10 @@ ${j.welfare || ''}
 }
 
 function jargonTag(R) {
-  if (!R) return '';
+  if (!R || R.level < 1) return '';
   const name = globalThis.JDD.LEVELS[R.level].name;
   const tip = R.vetos.length ? '一票否决：' + R.vetos.map((v) => v.k).join('、') : `坑度 ${R.score} / 100`;
-  return `<span class="jg jg-${R.level}" title="JD 黑话翻译 · ${esc(tip)}">黑话·${esc(name)}</span>`;
+  return `<span class="jg jg-${R.level}" title="JD 暗坑 · ${esc(tip)}">JD 暗坑·${esc(name)}</span>`;
 }
 
 function jargonBlock(R) {
@@ -212,7 +221,7 @@ function jargonBlock(R) {
   const good = R.items.filter((x) => x.w < 0);
   const line = (x) => `<li><b>${esc(x.quote)}</b>${x.n > 1 ? `×${x.n}` : ''}　${esc(x.say)}</li>`;
   return `<details class="jargon jg-box-${R.level}" ${R.vetos.length ? 'open' : ''}>
-    <summary>JD 黑话翻译 · <b>${esc(globalThis.JDD.LEVELS[R.level].name)}</b> · 坑度 ${R.score}${bad.length ? ` · 坑 ${bad.length}` : ''}${good.length ? ` · 好信号 ${good.length}` : ''}</summary>
+    <summary>JD 暗坑 · <b>${esc(globalThis.JDD.LEVELS[R.level].name)}</b>${bad.length ? ` · ${bad.length} 处要留心` : ''}${good.length ? ` · ${good.length} 处是好信号` : ''}</summary>
     ${R.vetos.length ? `<div class="jg-veto">一票否决：${R.vetos.map((v) => esc(v.k)).join('、')}</div>` : ''}
     ${bad.length ? `<ul>${bad.slice(0, 6).map(line).join('')}</ul>` : '<div class="hint">没翻出黑话。</div>'}
     ${good.length ? `<div class="jg-good">好信号：${good.map((x) => esc(x.quote)).join('、')}</div>` : ''}
@@ -220,7 +229,7 @@ function jargonBlock(R) {
 }
 
 function tierTag(tier, why) {
-  if (!tier || tier === '看不出') return '';
+  if (!tier || tier === '看不出' || tier === '小公司') return '';
   const cls = { 大单位: 'tier-big', 中型: 'tier-mid', 小公司: 'tier-small' }[tier] || '';
   return `<span class="tier ${cls}" title="${esc(why || '')}">${esc(tier)}</span>`;
 }
@@ -233,7 +242,7 @@ function platTag(plat, invite) {
 function verdictTag(v) {
   if (!v) return '';
   const cls = v === '投' ? 'go' : v === '不投' ? 'no' : 'ask';
-  const text = v === '投' ? '建议投' : v;
+  const text = v === '投' ? '建议投' : v === '等你定' ? '待你决定' : v;
   return `<span class="verdict ${cls}">${esc(text)}</span>`;
 }
 
@@ -245,11 +254,11 @@ function variantLabel(config, id) {
 function renderDone(done) {
   const box = $('done-list');
   const real = done.filter((d) => !d.dryRun);
-  if (!real.length) { box.innerHTML = '<p class="empty">今天还没投过。</p>'; return; }
+  if (!real.length) { box.innerHTML = '<p class="empty">今天还没投。<br>在「岗位」里按「投」，发出去的会列在这里。</p>'; return; }
   box.innerHTML = real.map((d) => `<div class="job">
     <span class="score hi">${d.score ?? ''}</span>
-    <h4>${platTag(d.platform || 'boss')}${esc(d.title)}</h4>
-    <div class="meta">${esc(d.company)} ｜ ${esc(d.salary)}${d.chatSalary ? `（聊天页 ${esc(d.chatSalary)}）` : ''} ｜ ${d.priority ? esc(d.priority) + ' ｜ ' : ''}${new Date(d.at).toLocaleTimeString('zh-CN')}</div>
+    <h4>${esc(d.title)}</h4>
+    <div class="meta">${esc(PLATFORM_NAMES[d.platform || 'boss'] || '')} · ${esc(d.company)} ｜ ${esc(d.salary)}${d.chatSalary ? `（聊天页 ${esc(d.chatSalary)}）` : ''} ｜ ${d.priority ? esc(d.priority) + ' ｜ ' : ''}${new Date(d.at).toLocaleTimeString('zh-CN')}</div>
     ${d.variantId ? `<div class="variant">${(d.platform || 'boss') === 'boss' ? 'HR 要简历时发' : '投递用附件'}：${esc(d.variantId)}</div>` : ''}
     ${d.greeting ? `<div class="reasons">${esc(d.greeting)}</div>` : ''}
   </div>`).join('');
@@ -258,8 +267,16 @@ function renderDone(done) {
 function renderLog(logs) {
   const box = $('panel-log');
   if (!logs.length) { box.innerHTML = '<p class="empty">还没有日志。</p>'; return; }
-  box.innerHTML = logs.map((l) => `<div class="log-line ${l.level}">
-    <time>${new Date(l.at).toLocaleTimeString('zh-CN')}</time><span>${esc(l.text)}</span>
+  // 连着几条一样的合成一条「×N」，最多显示 50 条（10/16：同一句报错每 9 秒刷一行）
+  const merged = [];
+  for (const l of logs) {
+    const last = merged[merged.length - 1];
+    if (last && last.text === l.text && last.level === l.level) last.n++;
+    else merged.push({ ...l, n: 1 });
+    if (merged.length > 50) break;
+  }
+  box.innerHTML = merged.slice(0, 50).map((l) => `<div class="log-line ${l.level}">
+    <time>${new Date(l.at).toLocaleTimeString('zh-CN')}</time><span>${esc(l.text)}${l.n > 1 ? ` <b>×${l.n}</b>` : ''}</span>
   </div>`).join('');
 }
 
@@ -284,7 +301,7 @@ $('btn-run').onclick = async () => {
   await render();
   try {
     await p;
-    status(isRunning() ? '一个平台筛完了，还有平台在筛' : '筛完了，在「待审」里审');
+    status(isRunning() ? '一个平台筛完了，还有平台在筛' : '筛完了，在「岗位」里审');
   } catch (e) {
     status(e.message, true);
   }
@@ -299,7 +316,7 @@ const QUICK = {
 document.querySelectorAll('[data-qs]').forEach((btn) => {
   btn.onclick = async () => {
     const kw = $('qs-kw').value;
-    if (!kw) { status('先在「今天」页的「筛什么」里填搜索关键词', true); return; }
+    if (!kw) { status('先在「待办」页的「筛什么」里填搜索关键词', true); return; }
     chrome.tabs.create({ url: QUICK[btn.dataset.qs](kw, cityCodes(await getConfig())) });
   };
 });
@@ -491,27 +508,18 @@ $('btn-clear-seen').onclick = async () => {
   status('已清空');
 };
 
-// 四个页签：今天 / 待审 / 网申 / 记录（查公司页不在导航上，从搜索框和卡片按钮进，左上角「返回」回原来那页）
-export function showPanel(name) {
-  document.querySelectorAll('.tab').forEach((x) => x.classList.toggle('active', x.dataset.tab === name));
-  document.querySelectorAll('.panel').forEach((x) => x.classList.toggle('active', x.id === `panel-${name}`));
-  document.querySelector('main').scrollTop = 0;
-}
-let lastTab = 'today';
-document.querySelectorAll('.tab').forEach((t) => {
-  t.onclick = () => { lastTab = t.dataset.tab; showPanel(t.dataset.tab); };
-});
-document.querySelectorAll('[data-back]').forEach((b) => { b.onclick = () => showPanel(lastTab); });
-
 // runtime 变了就刷新，这样跑的过程中界面是活的（列表只在真变了时重画）
 chrome.storage.onChanged.addListener((changes, area) => {
   // senderBeat：发送器的心跳和收工信号，用来刷新按钮状态
   if (area === 'local' && (changes.runtime || changes.senderBeat)) render(false);
 });
 
+initNav();
 resetStale().catch(() => {}).finally(() => render());
 initCampus();
 initAutofill();
 initCompany();
 initArchive();
 initToday();
+initNotice();
+initInterview();
