@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'">
+<title>网申</title>
+<style>
+  /* 配色照收件箱 v2 的 shadcn/ui zinc token */
+  :root { --bg:#fff; --line:#e4e4e7; --text:#09090b; --muted:#71717a; --soft:#f4f4f5; --primary:#18181b; --red:#dc2626; --red-soft:#fef2f2; --amber:#b45309; --amber-soft:#fffbeb; --ok:#15803d; --ok-soft:#f0fdf4; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 13px/1.5 "Microsoft YaHei UI", "Sarasa Gothic SC", system-ui, sans-serif; }
+  body { display: flex; flex-direction: column; border-left: 1px solid var(--line); }
+  header { padding: 14px 16px 10px; border-bottom: 1px solid var(--line); }
+  h1 { font-size: 15px; margin: 0 0 2px; }
+  .sub { color: var(--muted); font-size: 12px; }
+  main { flex: 1; overflow: auto; padding: 12px 16px 24px; }
+  label { display: block; font-size: 12px; color: var(--muted); margin: 10px 0 4px; }
+  input { width: 100%; height: 32px; border: 1px solid var(--line); border-radius: 6px; padding: 0 10px; font: inherit; color: var(--text); background: #fff; }
+  input:focus { outline: 2px solid #a1a1aa; outline-offset: -1px; }
+  .row { display: flex; gap: 8px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  button { font: inherit; height: 32px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--line); background: #fff; color: var(--text); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+  button:hover { background: var(--soft); }
+  button.primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+  button.primary:hover { background: #27272a; }
+  button:disabled { opacity: .5; cursor: default; }
+  .navs button { width: 32px; padding: 0; justify-content: center; }
+  .status { margin-top: 12px; padding: 8px 10px; border-radius: 6px; background: var(--soft); color: #52525b; font-size: 12px; min-height: 34px; }
+  .status.err { background: var(--red-soft); color: var(--red); }
+  .cov { margin: 14px 0 6px; font-size: 12px; color: var(--muted); }
+  .sec { margin-top: 14px; font-weight: 600; font-size: 12px; }
+  ul { list-style: none; margin: 6px 0 0; padding: 0; }
+  li { padding: 7px 9px; border-radius: 6px; margin-bottom: 4px; cursor: pointer; font-size: 12px; border: 1px solid transparent; }
+  li:hover { border-color: var(--line); }
+  li.red { background: var(--red-soft); } li.yellow { background: var(--amber-soft); } li.grey { background: var(--soft); }
+  li b { font-weight: 600; } li small { display: block; color: var(--muted); margin-top: 2px; }
+  details { margin-top: 10px; } summary { cursor: pointer; font-size: 12px; color: var(--muted); }
+  .warn { margin-top: 10px; padding: 8px 10px; border-radius: 6px; background: var(--amber-soft); color: var(--amber); font-size: 12px; }
+  .tip { color: var(--muted); font-size: 12px; margin-top: 12px; line-height: 1.7; }
+  /* 「我交了」：自己在网页上点完提交后记一笔，投递页才看得到这家 */
+  .done { margin-top: 12px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; display: flex; gap: 10px; align-items: center; }
+  .done p { margin: 0; flex: 1; font-size: 12px; color: var(--muted); line-height: 1.5; }
+  .done.ok { background: var(--ok-soft); border-color: transparent; }
+  .done.ok p { color: var(--ok); }
+  .done.err { background: var(--red-soft); border-color: transparent; }
+  .done.err p { color: var(--red); }
+  .done button { flex: none; }
+  [hidden] { display: none !important; }
+  .link { border: 0; background: none; color: inherit; text-decoration: underline; padding: 0; height: auto; font-weight: 600; }
+  .link:hover { background: none; }
+  svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+</style>
+</head>
+<body>
+<header>
+  <h1>网申通道</h1>
+  <div class="sub" id="cur">还没打开网申页</div>
+</header>
+<main>
+  <label for="url">网申链接</label>
+  <input id="url" placeholder="粘贴网申网址，回车打开" spellcheck="false">
+  <div class="row navs">
+    <button class="primary" id="go" style="width:auto;padding:0 14px">打开</button>
+    <button id="back" title="后退"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
+    <button id="fwd" title="前进"><svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></button>
+    <button id="reload" title="刷新"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg></button>
+  </div>
+  <div class="grid">
+    <div><label for="company">公司</label><input id="company" placeholder="选简历版本用"></div>
+    <div><label for="position">岗位</label><input id="position" placeholder="例：电商运营"></div>
+  </div>
+  <div class="row">
+    <button class="primary" id="fill"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>填这一页</button>
+    <button id="refill" title="不用上次的缓存，整页重新认">重新填</button>
+    <button id="remember" title="你手动补的内容记下来，下次别的网申自动填">记住我填的</button>
+  </div>
+  <div class="status" id="status">登录、填完、检查，最后的「提交」永远你自己点。验证码和滑块也是你来。</div>
+  <div class="done" id="done" hidden><p id="doneMsg">在网页上点完「提交」了？记一笔，投递页里就能看到这家。</p><button id="submitted">我交了</button></div>
+  <div id="report"></div>
+  <div class="tip">怎么用：贴链接打开 → 登录 → 停在简历表单那页 → 点「填这一页」。红色是要你处理的，黄色是 AI 填的、看一眼。点报告里的任一行，页面会滚到那一栏。<br>身份证、家庭成员这类敏感项只从本机私密档案填，不发给 AI。</div>
+</main>
+<script>
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const status = (t, err) => { $('status').textContent = t; $('status').className = 'status' + (err ? ' err' : ''); };
+  let busy = false;
+
+  async function open() {
+    let u = $('url').value.trim();
+    if (!u) return;
+    if (!/^https?:\/\//i.test(u)) u = 'https://' + u;
+    try { await campus.open(u); status('打开了。登录后停在表单页，再点「填这一页」'); } catch (e) { status(e.message, true); }
+  }
+  $('go').onclick = open;
+  $('url').addEventListener('keydown', (e) => { if (e.key === 'Enter') open(); });
+  $('back').onclick = () => campus.nav('back');
+  $('fwd').onclick = () => campus.nav('forward');
+  $('reload').onclick = () => campus.nav('reload');
+
+  async function run(fresh) {
+    if (busy) return;
+    busy = true; for (const b of ['fill', 'refill', 'remember']) $(b).disabled = true;
+    status('开始…');
+    try {
+      const r = await campus.fill({ company: $('company').value.trim(), position: $('position').value.trim() }, fresh);
+      status(`填完了（${r.stats?.secs ?? '?'} 秒）。没提交 —— 检查红黄的，再自己点提交`);
+      render(r);
+      showDone();
+    } catch (e) { status(e.message || String(e), true); }
+    finally { busy = false; for (const b of ['fill', 'refill', 'remember']) $(b).disabled = false; }
+  }
+  $('fill').onclick = () => run(false);
+  $('refill').onclick = () => run(true);
+  $('remember').onclick = async () => {
+    try { const saved = await campus.remember(); status(saved.length ? `记住了 ${saved.length} 项（只存本机）：${saved.join('、')}` : '没找到你手填的新内容（素材库里有的不用记）'); }
+    catch (e) { status(e.message, true); }
+  };
+  campus.onProgress((t) => status(t));
+  campus.onUrl((u, title) => {
+    $('cur').textContent = title ? `${title}` : u;
+    if (document.activeElement !== $('url')) $('url').value = u.startsWith('file:') ? '' : u;
+  });
+
+  function render(r) {
+    if (!r) { $('report').innerHTML = ''; return; }
+    const s = r.stats || {}, f = r.fields || [];
+    const red = f.filter((x) => x.color === 'red');
+    const yellow = f.filter((x) => x.color === 'yellow');
+    const miss = f.filter((x) => x.status === '缺' && x.color !== 'red');
+    const unk = f.filter((x) => x.status === '认不出' && x.color !== 'red');
+    const li = (x, cls) => `<li class="${cls}" data-key="${esc(x.key)}"><b>${esc(x.sectionLabel ? x.sectionLabel + ' · ' : '')}${esc(x.label || x.field || '（无标签）')}</b>${x.required ? ' *' : ''} — ${esc(x.status)}${x.filled ? `：${esc(String(x.filled).slice(0, 40))}` : ''}<small>${esc([...(x.notes || []), x.check ? `核对：${x.check.problem}，${x.check.why}` : ''].filter(Boolean).join('；'))}</small></li>`;
+    $('report').innerHTML = `
+      <div class="cov">共 ${s.total ?? 0} 个字段：已填 ${s.filled ?? 0}，缺 ${s.missing ?? 0}，认不出 ${s.unknown ?? 0}，没生效 ${s.failed ?? 0}</div>
+      ${r.warnings?.length ? `<div class="warn">${r.warnings.map(esc).join('<br>')}</div>` : ''}
+      ${r.submits?.length ? `<div class="tip">页面上的「${r.submits.map(esc).join('」「')}」已描红，你自己点。</div>` : ''}
+      ${red.length ? `<div class="sec">🔴 要你处理（${red.length}）</div><ul>${red.map((x) => li(x, 'red')).join('')}</ul>` : ''}
+      ${yellow.length ? `<div class="sec">🟡 AI 填的，看一眼（${yellow.length}）</div><ul>${yellow.map((x) => li(x, 'yellow')).join('')}</ul>` : ''}
+      ${miss.length ? `<details><summary>素材库没有、非必填，空着（${miss.length}）</summary><ul>${miss.map((x) => li(x, 'grey')).join('')}</ul></details>` : ''}
+      ${unk.length ? `<details><summary>认不出、非必填（${unk.length}）</summary><ul>${unk.map((x) => li(x, 'grey')).join('')}</ul></details>` : ''}
+      <details><summary>全部已填（${f.filter((x) => x.filled).length}）</summary><ul>${f.filter((x) => x.filled).map((x) => li(x, '')).join('')}</ul></details>`;
+  }
+  $('report').addEventListener('click', (e) => {
+    const el = e.target.closest('[data-key]');
+    if (el) campus.scrollTo(el.dataset.key).catch(() => status('那一栏不见了（页面可能刷新过）', true));
+  });
+  campus.last().then((r) => { render(r); if (r) showDone(); });
+
+  // 「我交了」：填完才出现；记过的这家（公司 + 网址）不让重复记
+  let doneKey = '';
+  const curKey = () => `${$('company').value.trim()}|${$('url').value.trim()}`;
+  function showDone(msg, cls = '') {
+    const box = $('done');
+    box.hidden = false; box.className = 'done' + (cls ? ' ' + cls : '');
+    $('doneMsg').innerHTML = msg || '在网页上点完「提交」了？记一笔，投递页里就能看到这家。';
+    $('submitted').hidden = cls === 'ok';
+  }
+  $('submitted').onclick = async () => {
+    const company = $('company').value.trim(), title = $('position').value.trim();
+    if (!company) { showDone('先在上面「公司」里填上公司名，投递表要靠它认是哪家。', 'err'); $('company').focus(); return; }
+    if (doneKey === curKey()) { showDone(`「${esc(company)}」已经记过了。`, 'ok'); return; }
+    $('submitted').disabled = true;
+    try {
+      const r = await campus.submitted({ company, title });
+      doneKey = curKey();
+      showDone(r?.now === false ? `记下了：「${esc(company)}」（网申 · 你投的），5 分钟内出现在投递页。<button class="link" id="goApps">去投递页看</button>`
+        : `记好了：「${esc(company)}」进了投递表（网申 · 你投的）。<button class="link" id="goApps">去投递页看</button>`, 'ok');
+      $('goApps').onclick = () => campus.goTab('apps');
+    } catch (e) { showDone(esc(String(e.message || e).replace(/^Error invoking remote method '[^']+': (Error: )?/, '')), 'err'); }
+    finally { $('submitted').disabled = false; }
+  };
+  // 换了公司或网址，就又能记一家
+  for (const id of ['company', 'url']) $(id).addEventListener('input', () => { if (doneKey && doneKey !== curKey() && !$('done').hidden) showDone(); });
+</script>
+</body>
+</html>

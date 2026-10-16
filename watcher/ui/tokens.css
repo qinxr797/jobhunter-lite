@@ -1,0 +1,60 @@
+/* v2.0.0 设计 token：照 shadcn/ui 的 zinc 中性色 + 单一主色（主动作用近黑 zinc-900），语义色各只一个。
+   收件箱和海投两页共用，颜色只许从这里取。 */
+:root {
+  /* 中性色（zinc） */
+  --bg: #ffffff;
+  --side: #fafafa;          /* 侧栏、表头这类第二层底色 */
+  --muted: #f4f4f5;         /* 输入框底、气泡、信息条 */
+  --hover: #f4f4f5;
+  --active: #e9e9ec;        /* 选中行 */
+  --line: #e4e4e7;
+  --line-2: #d4d4d8;        /* 按钮边框、强一点的分隔 */
+  --text: #09090b;
+  --text-2: #52525b;
+  --text-3: #71717a;
+  --text-4: #a1a1aa;        /* 占位字、禁用 */
+
+  /* 主动作：发送 / 投这 N 家。全页只有它是实心深色 */
+  --primary: #18181b;
+  --primary-hover: #27272a;
+  --primary-fg: #fafafa;
+
+  /* 语义色：要你处理（橙）/ 成功（绿）/ 危险（红）/ 等待·信息（蓝）/ 留意（琥珀） */
+  --attn: #ea580c;   --attn-soft: #fff1e8;   --attn-line: #fed7bf;
+  --ok: #16a34a;     --ok-soft: #eaf7ee;
+  --danger: #dc2626; --danger-soft: #fdecec; --danger-line: #f8c9c9;
+  --info: #2563eb;   --info-soft: #ebf1fe;
+  --warn: #b45309;   --warn-soft: #fdf3e2;
+
+  /* 平台色只用在平台小方块上 */
+  /* 10/16 v2.2.0：白字对比度都到 4.5:1 以上（原 BOSS 3.0、51job 2.5）；猎聘原来在 app.css / today.css 里写死 #ff6400（3.0），补成变量 --lp */
+  --boss: #008080; --zl: #2c6cf6; --j51: #a85d00; --lp: #c2410c;
+
+  /* 字号阶梯 / 间距（4 的倍数）/ 圆角 / 阴影 */
+  --fs-xs: 11px; --fs-sm: 12px; --fs-md: 13px; --fs-base: 14px; --fs-lg: 16px; --fs-xl: 18px;
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 20px; --s6: 24px;
+  --r-sm: 6px; --r: 8px; --r-lg: 12px;
+  --sh-sm: 0 1px 2px rgba(9, 9, 11, .05);
+  --sh-pop: 0 0 0 1px rgba(9, 9, 11, .06), 0 8px 24px rgba(9, 9, 11, .10);
+  --sh-drawer: -12px 0 32px rgba(9, 9, 11, .10);
+  --ring: 0 0 0 2px var(--bg), 0 0 0 4px #a1a1aa;
+  --ease: cubic-bezier(.2, .7, .2, 1);
+
+  --font: "Segoe UI Variable Text", "Segoe UI", "Sarasa UI SC", "Microsoft YaHei UI", "PingFang SC", system-ui, sans-serif;
+  --mono: "Cascadia Mono", Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0c0c0e; --side: #111113; --muted: #1c1c1f; --hover: #1c1c1f; --active: #27272a;
+    --line: #27272a; --line-2: #3f3f46; --text: #fafafa; --text-2: #b4b4bc; --text-3: #8b8b94; --text-4: #5b5b63;
+    --primary: #fafafa; --primary-hover: #e4e4e7; --primary-fg: #18181b;
+    --attn: #fb7a3c; --attn-soft: #2a1a10; --attn-line: #5a2f16;
+    --ok: #3fbf6a; --ok-soft: #10261a; --danger: #f05252; --danger-soft: #2c1414; --danger-line: #5c2222;
+    --info: #6b9bff; --info-soft: #121c33; --warn: #e0a24a; --warn-soft: #2a2010;
+    --sh-pop: 0 0 0 1px rgba(255, 255, 255, .08), 0 8px 24px rgba(0, 0, 0, .5);
+    --sh-drawer: -12px 0 32px rgba(0, 0, 0, .5);
+    --ring: 0 0 0 2px var(--bg), 0 0 0 4px #71717a;
+    color-scheme: dark;
+  }
+}

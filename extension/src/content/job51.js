@@ -35,6 +35,10 @@ function lastSearchApi() {
 
 function normalize(it) {
   const tags = parseArr(it.jobTags);
+  // 10/16 REA 逆向：搜索接口每条还带 jobWelfareCodeDataList（「周末双休」「五险一金」…），以前只读 jobTags（多半只有经验和学历），
+  // 模型常常看不到双休。合进福利里一起给模型，并单独标出休息制度，不用再开详情页（详情页会弹滑块）
+  const perks = (Array.isArray(it.jobWelfareCodeDataList) ? it.jobWelfareCodeDataList : []).map((w) => w.chineseTitle).filter(Boolean);
+  const rest = perks.concat(tags).find((t) => /双休|单休|大小周|做六休一|轮休/.test(t)) || '';
   return {
     platform: '51job',
     jobId: '51job-' + it.jobId, // 加前缀，免得和 BOSS / 智联的编号撞车
@@ -47,7 +51,8 @@ function normalize(it) {
     salary: it.provideSalaryString || '',
     city: it.jobAreaString || '',
     tags: [it.workYearString, it.degreeString].filter(Boolean),
-    welfare: tags.filter((t) => t !== it.workYearString && t !== it.degreeString).join('、'),
+    welfare: [...new Set(tags.filter((t) => t !== it.workYearString && t !== it.degreeString).concat(perks))].join('、'),
+    rest,
     jd: it.jobDescribe || '',
     companyInfo: [it.companyTypeString, it.companySizeString, it.companyIndustryType1Str, it.companyIndustryType2Str].filter(Boolean).join(' · '),
     hr: [it.hrName, it.hrPosition, it.hrIsOnline === 'true' ? '在线' : ''].filter(Boolean).join(' '),

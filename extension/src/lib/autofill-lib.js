@@ -131,6 +131,8 @@ export function localRule(f, facts) {
   // 家庭成员分块里的「姓名 / 电话」不是本人的
   if (sk === 'family' || /紧急|家庭|父|母|配偶|推荐人|联系人姓名/.test(l)) return null;
   const key = synKey(l);
+  // 起止日期连在一个框里的（antd RangePicker / element daterange）：教育分块直接给「入学 ~ 毕业」
+  if (f.range && sk === 'edu' && /时间|日期|年月|在校|就读/.test(l)) return r(`${E.start} ~ ${E.graduation}`, 'education[0].start');
   if (key === 'name' && (!sk || sk === 'basic')) return r(B.name, 'basic.name');
   if (key === 'phone' && sk !== 'intern' && sk !== 'project') return r(B.phone, 'basic.phone');
   if (key === 'email') return r(B.email, 'basic.email');
@@ -144,6 +146,25 @@ export function localRule(f, facts) {
   if (key === 'city' && (sk !== 'intern' && sk !== 'project')) return r(facts.intent.city, 'intent.city');
   if (/^(期望薪资|期望月薪|薪资要求|期望薪酬|期望待遇)$/.test(l)) return r(facts.intent.salary, 'intent.salary');
   if (/^(个人主页|作品集|作品链接|作品展示|个人网站|个人链接|博客|其他链接|相关链接|附加链接|网址)/.test(l)) return r(B.site, 'basic.site');
+  // 一题多格（页面脚本 scan 起的名：「手机-区号 / 手机-号码」「期望城市-省 / 市」「身份证-证件类型」「期望薪资-下限 / 上限」）
+  const bk = splitBlank(l);
+  if (bk) {
+    const bkey = synKey(bk.base);
+    if (bkey === 'phone' || /手机|电话/.test(bk.base)) {
+      if (bk.part === '区号') return r('+86', 'basic.phone');      // 区号下拉 / 区号框：国内号一律 +86
+      if (bk.part === '号码') return r(B.phone, 'basic.phone');
+    }
+    // 证件类型不是敏感信息（敏感的是号码），本地直接选身份证；号码那格交给本机记忆
+    if (bk.part === '证件类型') return r('身份证', 'basic.idType');
+    if (bkey === 'city' && sk !== 'intern' && sk !== 'project') {
+      if (bk.part === '省') { const p = provinceOf(facts.intent.city); if (p) return r(p, 'intent.city'); }
+      if (bk.part === '市') return r(facts.intent.city, 'intent.city');
+    }
+    if (/期望薪资|期望月薪|期望年薪|薪资要求|期望薪酬/.test(bk.base) && (bk.part === '下限' || bk.part === '上限')) {
+      const sp = salaryParts(facts.intent.salary, f.placeholder);
+      if (sp) return r(bk.part === '下限' ? sp[0] : sp[1], 'intent.salary');
+    }
+  }
   if (/^(入学时间|入学年月|入学日期|开始时间|起始时间)$/.test(l) && (sk === 'edu' || /入学/.test(l))) return r(E.start, 'education[0].start');
   if (sk === 'edu' && /(就读|在校|学习|教育)?时间/.test(l) && /开始|起/.test(l)) {
     if (/-年$/.test(l)) return r(E.start.slice(0, 4), 'education[0].start');
@@ -253,10 +274,148 @@ export function matchOption(options, target) {
     [/^本科$/, /^(本科|大学本科|全日制本科|本科\/学士|学士|统招本科)$/],
     [/^男$/, /^男(性)?$/], [/^女$/, /^女(性)?$/],
     [/^共青团员$/, /^(共青团员|团员)$/],
-    [/^合肥$/, /^合肥(市)?$/],
   ];
   for (const [a, b] of ALIAS) if (a.test(t)) { i = options.findIndex((o) => b.test(norm(o))); if (i >= 0) return i; }
+  // 省份 / 民族 / 国家 / 年份 / 月份 / 数字区间这类大列表：按列表类型本地对（「杭州」→ 省份列表里的「浙江省」，「2022-09」→ 月份列表里的「9月」）
+  const kind = listKind(options);
+  if (kind) { i = matchBigList(options, t, kind); if (i >= 0) return i; }
   const hits = options.map((o, k) => [k, norm(o)]).filter(([, o]) => o && (o.includes(t) || (t.includes(o) && o.length >= 2)));
   if (hits.length === 1) return hits[0][0];
   return -1;
+}
+
+// ---------------------------------------------------------------- 大列表本地识别（思路参考求职方舟 k.ro，表和判定是自己写的）
+// 几十上百项的下拉（省份、56 个民族、国家、年份…）送模型又贵又容易挑歪，这些列表的对应关系是死的，本地就能定
+
+const PROVINCES = ['北京', '天津', '上海', '重庆', '河北', '山西', '辽宁', '吉林', '黑龙江', '江苏', '浙江', '安徽', '福建', '江西', '山东', '河南', '湖北', '湖南', '广东', '海南', '四川', '贵州', '云南', '陕西', '甘肃', '青海', '台湾', '内蒙古', '广西', '西藏', '宁夏', '新疆', '香港', '澳门'];
+const ETHNICS = ['汉', '蒙古', '回', '藏', '维吾尔', '苗', '彝', '壮', '布依', '朝鲜', '满', '侗', '瑶', '白', '土家', '哈尼', '哈萨克', '傣', '黎', '傈僳', '佤', '畲', '高山', '拉祜', '水', '东乡', '纳西', '景颇', '柯尔克孜', '土', '达斡尔', '仫佬', '羌', '布朗', '撒拉', '毛南', '仡佬', '锡伯', '阿昌', '普米', '塔吉克', '怒', '乌孜别克', '俄罗斯', '鄂温克', '德昂', '保安', '裕固', '京', '塔塔尔', '独龙', '鄂伦春', '赫哲', '门巴', '珞巴', '基诺'];
+const COUNTRIES = ['中国', '美国', '日本', '韩国', '英国', '法国', '德国', '意大利', '西班牙', '葡萄牙', '荷兰', '比利时', '瑞士', '瑞典', '挪威', '丹麦', '芬兰', '冰岛', '爱尔兰', '奥地利', '波兰', '捷克', '匈牙利', '希腊', '土耳其', '俄罗斯', '乌克兰', '加拿大', '墨西哥', '巴西', '阿根廷', '智利', '秘鲁', '哥伦比亚', '澳大利亚', '新西兰', '印度', '巴基斯坦', '孟加拉', '斯里兰卡', '尼泊尔', '泰国', '越南', '老挝', '柬埔寨', '缅甸', '马来西亚', '新加坡', '印度尼西亚', '菲律宾', '蒙古', '哈萨克斯坦', '伊朗', '伊拉克', '沙特阿拉伯', '阿联酋', '以色列', '埃及', '南非', '尼日利亚', '肯尼亚', '埃塞俄比亚', '摩洛哥', '阿尔及利亚'];
+// 城市 → 省：省会 / 直辖市 + 少数地市（外省普通地级市交给模型认）。省份列表里填城市时用
+const CITY_PROVINCE = {
+  合肥: '安徽', 芜湖: '安徽', 蚌埠: '安徽', 淮南: '安徽', 马鞍山: '安徽', 淮北: '安徽', 铜陵: '安徽', 安庆: '安徽', 黄山: '安徽', 滁州: '安徽', 阜阳: '安徽', 宿州: '安徽', 六安: '安徽', 亳州: '安徽', 池州: '安徽', 宣城: '安徽',
+  北京: '北京', 天津: '天津', 上海: '上海', 重庆: '重庆', 石家庄: '河北', 太原: '山西', 呼和浩特: '内蒙古', 沈阳: '辽宁', 大连: '辽宁', 长春: '吉林', 哈尔滨: '黑龙江',
+  南京: '江苏', 苏州: '江苏', 无锡: '江苏', 杭州: '浙江', 宁波: '浙江', 福州: '福建', 厦门: '福建', 南昌: '江西', 济南: '山东', 青岛: '山东', 郑州: '河南', 武汉: '湖北', 长沙: '湖南',
+  广州: '广东', 深圳: '广东', 南宁: '广西', 海口: '海南', 成都: '四川', 贵阳: '贵州', 昆明: '云南', 拉萨: '西藏', 西安: '陕西', 兰州: '甘肃', 西宁: '青海', 银川: '宁夏', 乌鲁木齐: '新疆', 台北: '台湾',
+};
+const CN_NUM = { 一: 1, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9, 十: 10, 十一: 11, 十二: 12 };
+export const LIST_NAME = { province: '省份', ethnic: '民族', country: '国家', year: '年份', month: '月份', range: '数字区间' };
+
+const provBase = (s) => norm(s).replace(/(省|市|特别行政区|壮族自治区|回族自治区|维吾尔自治区|自治区)$/, '');
+const ethBase = (s) => norm(s).replace(/族$/, '');
+const yearNum = (s) => { const m = /^((?:19|20)\d{2})\s*年?\s*(届)?$/.exec(norm(s)); return m ? Number(m[1]) : 0; };
+const monthNum = (s) => {
+  const t = norm(s);
+  let m = /^(0?[1-9]|1[0-2])\s*月?$/.exec(t);
+  if (m) return Number(m[1]);
+  m = /^(十[一二]?|[一二三四五六七八九])月$/.exec(t);
+  return m ? CN_NUM[m[1]] : 0;
+};
+
+/** 城市 / 带省名的地址 → 省（「浙江省杭州市」「杭州」都给「浙江」）；认不出返回 '' */
+export function provinceOf(city) {
+  const t = norm(city).replace(/市$/, '');
+  if (CITY_PROVINCE[t]) return CITY_PROVINCE[t];
+  return PROVINCES.find((p) => t.startsWith(p)) || '';
+}
+
+/** 认选项是不是省份 / 民族 / 国家 / 年份 / 月份 / 数字区间这类大列表，认不出返回 '' */
+export function listKind(options) {
+  const opts = (options || []).map(norm).filter((o) => o && !/^[-\s]*请选择/.test(o));
+  if (opts.length < 8) return '';
+  const count = (names, base) => names.filter((n) => opts.some((o) => base(o) === n || o.startsWith(n))).length;
+  if (opts.length >= 30 && count(PROVINCES, provBase) >= 28) return 'province';
+  if (opts.length >= 30 && count(ETHNICS, ethBase) >= 30) return 'ethnic';
+  if (opts.length >= 30 && COUNTRIES.filter((n) => opts.some((o) => o.includes(n))).length >= 25) return 'country';
+  const years = opts.map(yearNum).filter(Boolean);
+  if (years.length >= 8 && years.length >= opts.length * 0.8) return 'year';
+  if (opts.length <= 14 && new Set(opts.map(monthNum).filter(Boolean)).size === 12) return 'month';
+  // 连续的数字（1~31 日、身高、年龄…），跨度 ≥ 10 才算
+  const nums = opts.map((o) => (/^\d{1,4}\s*(日|号|岁|cm|kg)?$/i.test(o) ? parseInt(o, 10) : NaN)).filter((n) => !Number.isNaN(n));
+  if (nums.length >= 10 && nums.length >= opts.length * 0.8) {
+    const s = [...nums].sort((a, b) => a - b);
+    if (s.every((n, k) => k === 0 || n === s[k - 1] + 1) && s[s.length - 1] - s[0] >= 10) return 'range';
+  }
+  return '';
+}
+
+/** 大列表里按类型找目标那一项，找不到返回 -1 */
+export function matchBigList(options, target, kind) {
+  const t = norm(target);
+  const find = (pred) => options.findIndex((o) => norm(o) && pred(norm(o)));
+  if (kind === 'province') {
+    const p = provinceOf(t);
+    return p ? find((o) => provBase(o) === p) : -1;
+  }
+  if (kind === 'ethnic') { const e = ethBase(t); return e ? find((o) => ethBase(o) === e) : -1; }
+  if (kind === 'country') {
+    // 区号（+86）：选项一般是「中国大陆 +86」
+    if (/^\+?\d{1,4}$/.test(t)) { const code = t.replace(/^\+/, ''); return find((o) => new RegExp(`\\+${code}(?!\\d)`).test(o)); }
+    if (/^(中国|中华人民共和国|中国大陆|china)$/i.test(t)) {
+      const i = find((o) => o === '中国');
+      return i >= 0 ? i : find((o) => /^(中国大陆|中国（大陆）|中国\(大陆\)|中华人民共和国|中国内地|china)$/i.test(o));
+    }
+    return find((o) => o === t || o.replace(/[（(].*$/, '') === t);
+  }
+  if (kind === 'year') {
+    const y = /((?:19|20)\d{2})/.exec(t)?.[1];
+    return y ? find((o) => yearNum(o) === Number(y)) : -1;
+  }
+  if (kind === 'month') {
+    const m = /^(?:19|20)\d{2}\s*[-./年]\s*(\d{1,2})/.exec(t)?.[1] || (monthNum(t) ? String(monthNum(t)) : '');
+    return m ? find((o) => monthNum(o) === Number(m)) : -1;
+  }
+  if (kind === 'range') {
+    // 日子列表（1~31）里给的是完整日期：取「日」
+    const d = /^(?:19|20)\d{2}[-./年]\d{1,2}[-./月](\d{1,2})/.exec(t)?.[1];
+    const n = d || (/^\d{1,4}\s*(日|号|岁|cm|kg|厘米|公斤)?$/i.test(t) ? String(parseInt(t, 10)) : '');
+    return n ? find((o) => parseInt(o, 10) === Number(n) && /^\d/.test(o)) : -1;
+  }
+  return -1;
+}
+
+// ---------------------------------------------------------------- 一题多格（思路参考求职方舟 k.F）
+
+const BLANK_PART = [
+  [/^(省|省份|省\/直辖市|省市|省\/市)$/, '省'], [/^(市|城市|地级市)$/, '市'], [/^(区|区县|区\/县|县)$/, '区'],
+  [/^(区号|国家|国家区号|国际区号)$/, '区号'], [/^(号码|手机号码|电话号码)$/, '号码'],
+  [/^(证件类型)$/, '证件类型'], [/^(证件号码|身份证号码|号码)$/, '证件号码'],
+  [/^(下限|最低|最低薪资)$/, '下限'], [/^(上限|最高|最高薪资)$/, '上限'],
+];
+/** 「籍贯-省」→ { base:'籍贯', part:'省' }；不是一题多格的名字返回 null */
+export function splitBlank(label) {
+  const m = /^(.+?)-([^-]+)$/.exec(norm(label).replace(/[*＊:：\s]/g, ''));
+  if (!m) return null;
+  const hit = BLANK_PART.find(([re]) => re.test(m[2]));
+  return hit ? { base: m[1], part: hit[1] } : null;
+}
+
+/** 「5-8K」→ 下限、上限。框的提示里写了 K / 千就按 K 给数，否则换算成元 */
+function salaryParts(s, ph = '') {
+  const m = /(\d+(?:\.\d+)?)\s*([kK千万])?\s*[-~～至到]\s*(\d+(?:\.\d+)?)\s*([kK千万])?/.exec(String(s || ''));
+  if (!m) return null;
+  const unit = m[4] || m[2] || '';
+  const mul = /[kK千]/.test(unit) ? 1000 : unit === '万' ? 10000 : 1;
+  if (mul === 1000 && /k|千/i.test(ph)) return [m[1], m[3]];
+  return [String(Math.round(Number(m[1]) * mul)), String(Math.round(Number(m[3]) * mul))];
+}
+
+// ---------------------------------------------------------------- 填之前的值后处理（思路参考求职方舟 k.P）
+
+/**
+ * 往框里写之前把值收拾成框要的样子：
+ *   手机号前的 +86 / 0086 去掉（区号那格除外）；身高体重去掉 cm / kg；框要到「日」而值只有 YYYY-MM 的补 -01
+ */
+export function tidyValue(f, value) {
+  let v = String(value ?? '');
+  const l = norm(f.label).replace(/[*＊:：\s]/g, '');
+  const bk = splitBlank(l);
+  if ((synKey(l) === 'phone' || /手机|电话/.test(bk?.base || l)) && bk?.part !== '区号') {
+    const m = /^(?:\+|00)?86(1\d{10})$/.exec(v.replace(/[\s-]/g, ''));
+    if (m) v = m[1];
+  }
+  if (/身高|体重/.test(l)) v = v.replace(/\s*(cm|厘米|公分|kg|千克|公斤)\s*$/i, '').trim();
+  // placeholder 只认明确写了日的格式（「YYYY-MM-DD」「年-月-日」），「请选择日期」不算
+  const wantDay = f.inputType === 'date' || /yyyy[-/.年]?mm[-/.月]?dd|年-月-日|年月日|\d{4}-\d{2}-\d{2}/i.test(f.placeholder || '');
+  if (wantDay && /^\d{4}-\d{2}$/.test(v) && (f.kind === 'date' || /时间|日期|年月|生日/.test(l))) v = `${v}-01`;
+  return v;
 }

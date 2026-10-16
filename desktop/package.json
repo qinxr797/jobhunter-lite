@@ -1,0 +1,15 @@
+{
+  "name": "jobhunter-desktop",
+  "version": "2.0.0",
+  "private": true,
+  "description": "求职助手桌面版：今天 / 投递 / 消息 / 找岗位 / 网申，内嵌各招聘平台",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "@electron/packager": "^20.3.0",
+    "electron": "^44.5.1"
+  },
+  "author": "jobhunter-lite contributors"
+}

@@ -1,0 +1,49 @@
+{
+  "_说明": "放在 <安装目录>\\data\\config.json，桌面助手第一次打开的设置向导会写好，watcher 只读。空着的项 = 不用这个功能。",
+
+  "deepseek": { "apiKey": "", "model": "deepseek-flash", "base": "https://api.deepseek.com" },
+  "city": "",
+  "keywords": [],
+  "resumeText": "",
+  "portfolio": "",
+  "blacklist": [],
+  "telegram": { "token": "", "chatId": "", "proxy": "" },
+  "wechatAlt": "",
+
+  "intro": "",
+  "pronoun": "他",
+  "salaryExpect": "",
+  "criteria": "",
+  "nearDistricts": [],
+  "dailyLimit": 15,
+
+  "autopilot": {
+    "autoReply": true,
+    "askInterview": true,
+    "neverAskPay": true,
+    "hours": [8, 22],
+    "intervalMin": 5
+  },
+
+  "goodUnits": [
+    "日企、外企、合资，或正规公司里英文外向的岗位（外贸单证、海外商务支持、外企助理）",
+    "大单位：上市公司、国企央企、事业单位、世界 500 强、有名的品牌企业、规模上千人的正规公司（含分公司）",
+    "学校的非教师岗：高校、职业院校、中小学的行政、宣传、教务、学工、实验室",
+    "冷门宝藏：协会 / 学会 / 商会秘书处、科研院所课题组、出版社 / 杂志社、检测认证、知识产权流程、外资办事处"
+  ],
+
+  "resumeFiles": [
+    { "id": "general", "label": "通用", "file": "", "keywords": [] }
+  ],
+
+  "cityCodes": { "boss": "", "zhilian": "", "liepin": "" },
+
+  "ports": {
+    "inbox": 8790,
+    "boss": 9401, "zhaopin": 9401, "j51": 9401, "lp": 9401,
+    "plugin": 9334,
+    "deskTabs": { "boss": 9402, "zhaopin": 9403, "j51": 9403, "lp": 9404, "research": 9405 }
+  },
+
+  "browserPath": ""
+}

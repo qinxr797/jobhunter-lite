@@ -6,7 +6,7 @@
 <title>求职助手使用教程</title>
 <style>
   :root { --bg: #f4f3ef; --card: #fff; --ink: #1d1c19; --ink2: #55524b; --ink3: #75716a; --line: #e2dfd7; --accent: #1d6b58; --soft: #e2efe9; --warn: #9a5a06; --warn-soft: #fbf0dc; }
-  @media (prefers-color-scheme: dark) { :root { --bg: #141412; --card: #1c1c19; --ink: #ecebe5; --ink2: #b5b2a8; --ink3: #8f8c83; --line: #33322d; --accent: #5dbb9b; --soft: #1e352d; --warn: #e0a64a; --warn-soft: #3a2d15; } }
+  @media (prefers-color-scheme: dark) { :root { --bg: #141412; --card: #1c1c19; --ink: #ecebe5; --ink2: #b5b2a8; --ink3: #8f8c83; --line: #33322d; --accent: #5dbb9b; --soft: #1e352d; --warn: #e0a64a; --warn-soft: #33270f; } }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.8 "PingFang SC", "Microsoft YaHei", sans-serif; }
   main { max-width: 860px; margin: 0 auto; padding: 32px 16px 64px; }
@@ -22,10 +22,8 @@
   code, kbd { background: var(--soft); color: var(--accent); padding: 1px 6px; border-radius: 4px; font-family: inherit; font-size: 14px; }
   .tip { background: var(--soft); border-radius: 8px; padding: 10px 14px; margin: 12px 0; }
   .warn { background: var(--warn-soft); color: var(--warn); border-radius: 8px; padding: 10px 14px; margin: 12px 0; }
-  .shots { display: flex; gap: 12px; overflow-x: auto; padding: 4px 0 8px; }
-  figure { margin: 0; flex: 0 0 auto; }
-  figure img { display: block; width: 260px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
-  figure.wide img { width: min(560px, 100%); }
+  figure { margin: 12px 0; }
+  figure img { display: block; width: 100%; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
   figcaption { font-size: 12px; color: var(--ink3); text-align: center; margin-top: 4px; }
   table { border-collapse: collapse; width: 100%; font-size: 14px; background: var(--card); border-radius: 8px; overflow: hidden; }
   td, th { border-bottom: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
@@ -35,82 +33,94 @@
 <body>
 <main>
   <h1>求职助手 · 使用教程</h1>
-  <p class="lead">一个 Chrome 插件：在 BOSS直聘、51job、智联上按你的简历和求职标准一家家看岗位，判断投不投、写好开场白，排成清单等你审。<b>你按了「投」它才会发。</b></p>
+  <p class="lead">v2.0.0。一个 Windows 桌面软件：今天该办的事、投过的每一家、HR 的消息、筛岗位、填网申，都在一个窗口里。<b>会发出去的东西（打招呼、回 HR、网申提交），默认都要你点一下才发。</b></p>
 
   <nav class="toc">
-    <a href="#install">1. 安装</a><a href="#setup">2. 第一次设置</a><a href="#daily">3. 每天怎么用</a><a href="#tools">4. 四个工具</a><a href="#notes">5. 一定要知道的</a><a href="#faq">6. 常见问题</a>
+    <a href="#install">1. 安装</a><a href="#setup">2. 第一次设置</a><a href="#bar">3. 顶栏怎么看</a><a href="#daily">4. 每天怎么用</a><a href="#notes">5. 一定要知道的</a><a href="#faq">6. 常见问题</a>
   </nav>
 
   <h2 id="install">1. 安装（2 分钟）</h2>
   <ol>
-    <li>把收到的压缩包解压到一个固定的位置，比如 <code>D:\求职助手</code>。<b>装好以后这个文件夹别删、别挪</b>，插件就是从这里读的。</li>
-    <li>Chrome 地址栏输入 <code>chrome://extensions</code> 回车，打开右上角的「开发者模式」。</li>
-    <li>点「加载已解压的扩展程序」，选解压出来的 <code>extension</code> 文件夹。</li>
-    <li>点工具栏上的拼图图标，把「求职助手」钉到工具栏。以后点它，右边就会弹出侧边栏。</li>
+    <li>在 GitHub 页面右边的 <b>Releases</b> 里下载 <code>jobhunter-v2.0.0-win64.zip</code>。</li>
+    <li>解压到一个固定的位置，比如 <code>D:\求职助手</code>。<b>之后这个文件夹别删、别挪</b>，你的设置和登录状态都存在它下面的 <code>data</code> 里。</li>
+    <li>双击 <code>HR Desk\HR Desk.exe</code>。第一次打开会在桌面放一个「求职助手」图标，以后双击它就行。</li>
   </ol>
+  <div class="tip">要用到电脑上的 <b>Chrome 或 Edge</b>（找岗位、网申自动填借用它，在后台跑，你看不到它的窗口）。Win10 / 11 都自带 Edge，一般不用另外装。设置页最上面会写找到了哪一个。</div>
+  <div class="tip">Windows 可能弹「已保护你的电脑」：点「更多信息」→「仍要运行」。这个软件没有买代码签名证书，所以会弹这个提示。</div>
 
-  <h2 id="setup">2. 第一次设置（10 分钟）</h2>
-  <p>装好后设置页会自己弹出来。侧边栏顶上也会提示「还差 3 步」，点「去设置」一样能进。</p>
-  <ol>
-    <li><b>① 填 Key</b>：插件用 DeepSeek 判断岗位、写开场白。去 <code>platform.deepseek.com</code> 注册、充 10 块钱（能用很久），在「API keys」里创建一个，粘进来点「测试连接」。Key 只存在你这台电脑的浏览器里。</li>
-    <li><b>② 填城市</b>：你要找工作的城市，比如「杭州」。</li>
-    <li><b>③ 解析简历</b>：把简历全文复制进框里，点「解析简历」。它只照抄和归类，不会替你润色或编东西；格子里有读错的，直接改。</li>
-    <li><b>找工作标准</b>：把带【】的地方改成你自己的情况，比如想要什么样的公司、什么样的不要。写得越具体，它判得越准。</li>
-    <li>点最下面的「保存全部设置」。</li>
-  </ol>
-  <figure class="wide"><img src="docs/img/options.png" alt="设置页"><figcaption>设置页：按 ① ② ③ 填完就能用，「高级」里的一般不用动</figcaption></figure>
-
-  <h2 id="daily">3. 每天怎么用</h2>
-  <div class="tip">开始前，先在<b>这个 Chrome</b>里登录 BOSS直聘、51job、智联招聘。插件用的就是你自己的登录状态。</div>
-  <div class="shots">
-    <figure><img src="docs/img/today.png" alt="待办"><figcaption>待办</figcaption></figure>
-    <figure><img src="docs/img/jobs.png" alt="岗位"><figcaption>岗位</figcaption></figure>
-    <figure><img src="docs/img/records.png" alt="进度"><figcaption>进度</figcaption></figure>
-  </div>
-
-  <h3>「待办」：每天从这里开始</h3>
-  <ol>
-    <li>点<b>「开始筛选」</b>。插件会自己打开搜索页一家家看，只看不点。点开「筛什么」能改关键词、选平台。<b>跑的时候 Chrome 窗口别最小化</b>，最小化了网页会睡着。</li>
-    <li>「<b>要你处理</b>」只列真要你动手的：HR 回了或者有意向的、没投成的、网申快截止的。点一下就跳过去。</li>
-    <li>「<b>BOSS 新消息</b>」点「看一下」，会读 BOSS 的聊天列表，告诉你谁值得回，还给你一句回复草稿。它不会点开会话，HR 那边看不到「已读」。</li>
-  </ol>
-
-  <h3>「岗位」：审完再投</h3>
-  <ul>
-    <li><b>社招待审</b>：筛出来的岗位都在这里。右边的数字是「合适度」，满分 100，只当参考。点一行展开，看为什么推荐、JD 里有没有暗坑，再改改开场白，满意就按「投」，不想要按「不投」。看岗位原页、定制简历、查公司、拉黑这家公司，都在「更多」里。</li>
-    <li>想一次投好几家：勾上前面的小方框，点「投选中的」。</li>
-    <li><b>网申</b>：校招网申公告，默认只显示「建议投」、没截止的，快截止的排在最前面。点「去投递」到官网自己投，投完回来按「我投了」记一下。</li>
-  </ul>
-
-  <h3>「进度」：投出去的每一家现在怎样了</h3>
-  <p>点「刷新」，插件会去读 BOSS 聊天、51job「我的申请」、智联「求职反馈 / 面试邀请」，把每一家分成：要你接（面试）、HR 回了、可以跟一句、在等、没动静、婉拒。前两组默认展开，其余点开再看。「导出表格」能存成 Excel 打开。</p>
-
-  <h2 id="tools">4. 四个工具（侧边栏右上角「工具」）</h2>
-  <figure><img src="docs/img/tools.png" alt="工具"><figcaption>工具页</figcaption></figure>
+  <h2 id="setup">2. 第一次设置（5 分钟）</h2>
+  <p>第一次打开先出来的是设置页。以后可以从顶栏 <b>更多 › 设置</b> 回来改。</p>
   <table>
-    <tr><th>查公司</th><td>输入单位名字回车，后台搜百度（你登着企查查的话顺带看），AI 告诉你这家公司规模、加不加班、有没有欠薪仲裁，每条都带出处。一次半分钟、一两分钱。</td></tr>
-    <tr><th>面试备战包</th><td>约到面试后，填公司和岗位，一两分钟出一页能打印的复习资料：公司是干什么的、网上的面经、1 分钟和 30 秒自我介绍、可能被问的题和答题思路、反问清单。<b>只用你简历里的真经历，不会编数字。</b></td></tr>
-    <tr><th>填这一页网申</th><td>打开公司官网的网申表单，点「填这一页」，按你的简历自动填，每个框填完都会回读核对，红框是要你看一眼的。身份证这类敏感信息不发给 AI，你手填一次再点「记住这页我填的」，下次自动填。<b>提交、下一步永远你自己点。</b></td></tr>
-    <tr><th>拆招聘公告</th><td>学校、医院、协会的招聘公告，岗位表常在附件里（PDF / Excel / Word）。打开公告页点「拆当前页」，它会逐个岗位告诉你符不符合、卡在哪一条（专业、学历、年龄……），还会标出要不要笔试。</td></tr>
+    <tr><th>① API Key</th><td>去 <b>platform.deepseek.com</b> 注册，充 10 元，在「API Keys」里创建一个 Key 粘进来，再点「测试连接」。判断岗位、起草回复都靠它。</td></tr>
+    <tr><th>② 你和工作</th><td>求职城市、怎么称呼你（他 / 她）、一句话介绍自己（比如「2025 届市场营销本科，做过一年新媒体运营」）、想找的岗位（一行一个）。</td></tr>
+    <tr><th>③ 简历</th><td>全文粘贴，或者点「从文件读」选一个 .txt。点「解析简历」以后，网申自动填会更准（这一步可以不做）。</td></tr>
+    <tr><th>④ 求职标准</th><td>选填，但建议写。判断投不投时会照这个来，比如「必须双休；不去外包、电销；通勤 40 分钟以内」。期望薪资是 HR 问起时用的。</td></tr>
+    <tr><th>⑤ 更多</th><td>作品集网址、拉黑的公司、给 HR 的微信号、Telegram 提醒（有约面这类事会推到手机）。都可以空着。</td></tr>
+    <tr><th>Telegram</th><td>用 @BotFather 建一个 bot 拿到 Token；Chat ID 找 @userinfobot 问。填完<b>先在 Telegram 里给自己的 bot 发一条 /start</b>，不然它没法主动给你发消息。国内连不上 Telegram，要在「代理地址」里填你代理软件的地址（比如 <code>http://127.0.0.1:7890</code>，端口看你自己的代理软件），不填就推不出去。</td></tr>
   </table>
+  <figure><img src="docs/img/setup.png" alt="设置页" loading="lazy"><figcaption>设置页（演示数据，公司和人名都是编的）</figcaption></figure>
+  <h3>登录各个平台</h3>
+  <p>点顶栏 <b>更多</b>，依次打开 BOSS 直聘、智联、51job、猎聘，在里面各扫码登录一次就行，别的地方都不用登。登录状态会保存在本机，以后不用再登。哪个平台掉了登录，右上角的状态条会变红，并告诉你是哪个。</p>
+  <div class="tip">不用往自己的 Chrome 里装插件，也不用在 Chrome 里登录这些平台。筛岗位的插件会自动装进一个看不见的后台浏览器，你日常用的 Chrome 一点不动。<b>BOSS 网页同一时间只认一处登录</b>，所以别在别的浏览器里同时登着 BOSS，否则软件里的那份会被挤掉。</div>
+
+  <h2 id="bar">3. 顶栏怎么看</h2>
+  <table>
+    <tr><th>今天</th><td>打开软件默认停在这一页。数字是今天要办几件；变成橙色说明有要你亲自接的事（比如约面），或者有事已经逾期了。</td></tr>
+    <tr><th>投递</th><td>数字是进行中的家数。</td></tr>
+    <tr><th>消息</th><td>HR 的聊天。</td></tr>
+    <tr><th>找岗位</th><td>等你审的岗位。</td></tr>
+    <tr><th>网申</th><td>填官网网申表。</td></tr>
+    <tr><th>更多 ▾</th><td>BOSS 直聘 / 智联 / 51job / 猎聘 / 企查查的网页，还有「设置」。哪个平台没登录，会在这里标出来。</td></tr>
+    <tr><th>右边状态条</th><td>后台在盯哪几个平台：「实时」表示新消息马上就能收到，「每 5 分 / 每 15 分」表示隔一会儿看一次，后面写着下一轮几点。点开可以「立即扫一轮」或「暂停」。整条变红就是出了问题，上面会写怎么办。</td></tr>
+  </table>
+  <p>快捷键：<kbd>Ctrl</kbd>+<kbd>1</kbd>～<kbd>5</kbd> 切前五个标签。列表页里 <kbd>J</kbd> / <kbd>K</kbd> 上下移动，<kbd>E</kbd> 标完成，<kbd>M</kbd> 稍后再看，<kbd>/</kbd> 搜索。</p>
+
+  <h2 id="daily">4. 每天怎么用</h2>
+  <h3>① 先看「今天」</h3>
+  <p>只放要你动手的事，从上到下分四组：<b>你接</b>（约面、要电话或微信，得你本人来）→ <b>要回</b>（HR 回了话等你回复）→ <b>逾期</b> → <b>今天</b>。每一条右边都有按钮直接去办（「去消息」「去平台」）；办完点「完成」，想晚点再说就点「稍后」。全部清空会显示「今天的事都办完了」。</p>
+  <figure><img src="docs/img/today.png" alt="今天" loading="lazy"><figcaption>今天（演示数据，公司和人名都是编的）</figcaption></figure>
+  <h3>② 回 HR：「消息」</h3>
+  <p>左边是分组，中间是会话，右边是聊天记录。可以自己写回复，也可以点「AI 起草」先出一稿再改；按 <kbd>Ctrl</kbd>+<kbd>Enter</kbd> 发送，发出后 5 秒内还能撤销。对于普通问题，后台会照你的设置自动回；碰到约面、要联系方式这类事，一律交给你。</p>
+  <figure><img src="docs/img/inbox.png" alt="消息" loading="lazy"><figcaption>消息（演示数据，公司和人名都是编的）</figcaption></figure>
+  <h3>③ 投新岗位：「找岗位」</h3>
+  <p>点「去平台找新岗位」，它会按你填的岗位关键词去 BOSS、51job、智联上筛一轮，结果排进「待审」。每家都写了「投 / 等你定 / 不投」和理由。勾上你要投的，按「投这 N 家」，它会一家一家地发，两家之间隔一会儿。</p>
+  <figure><img src="docs/img/hunt.png" alt="找岗位" loading="lazy"><figcaption>找岗位（演示数据，公司和人名都是编的）</figcaption></figure>
+  <h3>④ 看进度：「投递」</h3>
+  <p>所有平台、所有方式投出去的都在这一张表里。默认显示「进行中」，可以切成看板；点某一家，右边会展开它的时间线和聊天入口。投失败的标着「没投成」，可以再投一次，或者去平台上确认。</p>
+  <figure><img src="docs/img/apps.png" alt="投递" loading="lazy"><figcaption>投递（演示数据，公司和人名都是编的）</figcaption></figure>
+  <h3>⑤ 官网网申：「网申」</h3>
+  <ol>
+    <li>在右边贴网申链接，打开后登录。</li>
+    <li>停在填简历的那一页，点「填这一页」。<b>红色</b>的是要你自己处理的，<b>黄色</b>的是 AI 填的，看一眼对不对。</li>
+    <li>检查完了自己点网页上的「提交」，再回来点「我交了」，这家就会记进投递表。</li>
+  </ol>
+  <p>你手动补填的内容，点「记住我填的」，下一份网申会自动填上。</p>
+  <figure><img src="docs/img/apply.png" alt="网申" loading="lazy"><figcaption>网申（演示数据，公司和人名都是编的）</figcaption></figure>
+
 
   <h2 id="notes">5. 一定要知道的</h2>
-  <div class="warn"><b>点「投」那一下，BOSS 会先自动发出你账号里设置的默认招呼语</b>，插件再接着发它写的开场白。所以先去 BOSS 把默认打招呼语改成你能接受的。</div>
+  <div class="warn"><b>有封号风险。</b>默认设置是保守的：BOSS 每天最多打 15 个招呼，每发一个间隔几十秒，出现验证码就停。别把这些数往大了调。</div>
   <ul>
-    <li><b>有封号风险</b>。默认设置偏保守：BOSS 每天最多 15 家，每家间隔 25～70 秒，出现验证码就停。这几个数别往大调。</li>
-    <li><b>花钱</b>：用的是你自己的 DeepSeek，筛一个岗位大约一两分钱（按官方价估）。</li>
-    <li><b>AI 的判断只是参考</b>。公司靠不靠谱，投之前自己再看一眼。</li>
-    <li><b>数据只在你电脑上</b>：简历、Key、投递记录都存在这个 Chrome 里，插件没有自己的服务器。往外发的只有两样：给 DeepSeek 做判断的岗位和简历内容，去百度搜的公司名。</li>
+    <li><b>在 BOSS 上点「投」的时候，BOSS 会先自动发出你账号里设置的默认招呼语</b>，然后才发它写的开场白。所以先去 BOSS 把默认招呼语改成你能接受的。</li>
+    <li>你的东西都存在安装目录下的 <code>data</code> 文件夹里，不会上传到任何服务器。AI 判断时，会把岗位信息和你的简历发给 DeepSeek。</li>
+    <li>花费：用 DeepSeek 筛一个岗位大约一两分钱（按官方价估算）。</li>
+    <li>AI 的判断只能当参考。公司靠不靠谱，投之前自己再看一眼。「消息」页里有背调，能查参保人数、经营异常和风险。</li>
+    <li>点窗口右上角的 × 只是把软件收到右下角托盘，后台照常盯着消息。要真退出，右键托盘图标选「退出」。</li>
   </ul>
 
   <h2 id="faq">6. 常见问题</h2>
-  <table>
-    <tr><th>点了开始没反应</th><td>先看顶上有没有「还差 3 步」的提示，Key、城市、简历都要填。再看筛选关键词是不是空的。</td></tr>
-    <tr><th>跑到一半停了</th><td>多半是网站弹了验证码，去那个标签页自己过一下，再点「开始筛选」。筛过的岗位不会重复看。</td></tr>
-    <tr><th>进度里 51job / 智联是空的</th><td>这两个网站要在这个 Chrome 里登录着才读得到。</td></tr>
-    <tr><th>拆公告说附件要验证码</th><td>有些学校网站下载附件要输图形验证码。你点开附件输一下，下载到电脑上，在「拆招聘公告」里选这个文件，再点「拆当前页」。</td></tr>
-    <tr><th>插件更新了怎么换</th><td>把新的 <code>extension</code> 文件夹覆盖旧的，再去 <code>chrome://extensions</code> 点插件卡片上的刷新按钮。设置和记录都还在。</td></tr>
-  </table>
+  <h3>状态条一直是红的</h3>
+  <p>点开状态条看是哪个平台。大多是登录掉了：去 <b>更多</b> 里打开那个平台，重新扫码登录，再点「立即扫一轮」。</p>
+  <h3>「找岗位」点了没反应，或者提示没找到浏览器</h3>
+  <p>说明电脑上没找到 Chrome 或 Edge。装一个 Chrome，然后重开软件。</p>
+  <h3>扫 51job 时弹出一个 51job 登录窗口</h3>
+  <p>后台筛 51job 用的是另一个看不见的浏览器，它会自动沿用你在软件里登录的 51job。偶尔网站不认这份登录，就会弹出这个窗口。你在里面登录好、把窗口关掉，再点一次「去平台找新岗位」就行。</p>
+  <h3>测试连接失败</h3>
+  <p>写着「认证失败」，是 Key 没复制全；写着「余额」，是 DeepSeek 账户需要充值。</p>
+  <h3>换电脑 / 重装</h3>
+  <p>把整个安装文件夹（连同 <code>data</code>）拷过去就行。只想要一个干净的新开始，就删掉 <code>data</code>。</p>
+  <h3>旧版插件还能用吗</h3>
+  <p>能。旧版在 GitHub 的 <code>v1</code> 分支和 <code>v1.1.0</code> 标签里，照旧版教程装进 Chrome 就行。</p>
 </main>
 </body>
 </html>

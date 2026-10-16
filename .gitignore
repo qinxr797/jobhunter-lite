@@ -1,0 +1,12 @@
+# 运行时数据（设置、登录状态、日志、投递库）一律不进仓库
+data/
+**/data/
+*.out
+*.log
+*.pid
+.chrome-plugin/
+
+# 打包
+dist/
+node_modules/
+desktop/package-lock.json

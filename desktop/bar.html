@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'">
+<title>bar</title>
+<style>
+  /* v0.6.0 顶栏：今天｜投递｜消息｜找岗位｜网申｜更多▾ + 右侧常驻盯梢状态条。颜色照收件箱的 tokens.css（shadcn zinc） */
+  :root {
+    --bg: #ffffff; --line: #e4e4e7; --text: #09090b; --text-2: #52525b; --text-3: #71717a; --text-4: #a1a1aa;
+    --hover: #f4f4f5; --active: #e9e9ec;
+    --attn: #ea580c; --ok: #16a34a; --danger: #dc2626; --danger-soft: #fdecec; --warn: #b45309; --warn-soft: #fdf3e2;
+    --font: "Segoe UI Variable Text", "Segoe UI", "Sarasa UI SC", "Microsoft YaHei UI", "PingFang SC", system-ui, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0c0c0e; --line: #27272a; --text: #fafafa; --text-2: #b4b4bc; --text-3: #8b8b94; --text-4: #5b5b63; --hover: #1c1c1f; --active: #27272a;
+      --attn: #fb7a3c; --ok: #3fbf6a; --danger: #f05252; --danger-soft: #2c1414; --warn: #e0a24a; --warn-soft: #2a2010; }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); font: 13px/1 var(--font); color: var(--text); user-select: none; overflow: hidden; }
+  .bar { height: 44px; display: flex; align-items: center; gap: 2px; padding: 0 8px 0 12px; border-bottom: 1px solid var(--line); min-width: 0; }
+  .brand { font-weight: 650; display: flex; align-items: center; gap: 7px; margin-right: 12px; white-space: nowrap; flex: none; }
+  .brand i { width: 18px; height: 18px; border-radius: 5px; background: #18181b; display: inline-flex; align-items: center; justify-content: center; }
+  .brand i svg { width: 11px; height: 11px; stroke: #fafafa; stroke-width: 2.4; }
+  .brand small { color: var(--text-4); font-weight: 500; font-size: 11px; }
+  button { font: inherit; border: 0; background: transparent; color: var(--text-2); height: 32px; padding: 0 11px; border-radius: 7px; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; flex: none; transition: background .12s, color .12s; }
+  button:hover { background: var(--hover); color: var(--text); }
+  button:active { background: var(--active); }
+  button:focus-visible { outline: 2px solid var(--text-4); outline-offset: 1px; }
+  .tab[aria-selected="true"] { background: var(--active); color: var(--text); font-weight: 650; }
+  .n { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center;
+    font-variant-numeric: tabular-nums; background: var(--hover); color: var(--text-3); }
+  .tab[aria-selected="true"] .n:not(.hot) { background: var(--bg); }
+  .n.hot { background: var(--attn); color: #fff; }
+  .n[hidden] { display: none; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-4); flex: none; }
+  .dot.on { background: var(--ok); } .dot.warn { background: #f59e0b; } .dot.bad { background: var(--danger); }
+  .dot.pulse { animation: pulse 1.6s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .35; } }
+  svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  .sep { width: 1px; height: 18px; background: var(--line); margin: 0 6px; flex: none; }
+  .spacer { flex: 1; min-width: 8px; }
+  .icon { width: 32px; padding: 0; justify-content: center; color: var(--text-3); }
+
+  /* 盯梢状态条：一眼看到几个平台、谁实时、下一轮几点；坏了变红并直接说怎么办 */
+  .watch { gap: 8px; padding: 0 10px; color: var(--text-2); min-width: 0; flex: 0 1 auto; overflow: hidden; border: 1px solid var(--line); height: 30px; }
+  .watch .lbl { font-weight: 600; color: var(--text); }
+  .watch .plats { display: inline-flex; gap: 10px; color: var(--text-3); overflow: hidden; }
+  .watch .plats span { display: inline-flex; align-items: center; gap: 4px; }
+  .watch .plats b { font-weight: 500; color: var(--text-2); }
+  .watch .plats em { font-style: normal; font-size: 11px; color: var(--ok); }
+  .watch .plats em.slow { color: var(--text-4); }
+  .watch .plats .bad b, .watch .plats .bad em { color: var(--danger); }
+  .watch .when { color: var(--text-3); }
+  .watch.bad { background: var(--danger-soft); border-color: transparent; color: var(--danger); }
+  .watch.bad .lbl { color: var(--danger); }
+  .watch.warn { background: var(--warn-soft); border-color: transparent; color: var(--warn); }
+  .watch.warn .lbl { color: var(--warn); }
+  .short { display: none; }
+  .hint { color: var(--text-2); font-size: 12px; margin: 0 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .hint:empty { display: none; }
+  /* 窄窗口：平台明细收起，只留「盯梢 · 4 个平台 · 下一轮」；再窄连品牌名也收 */
+  @media (max-width: 1240px) { .watch .plats { display: none; } .short { display: inline; } }
+  @media (max-width: 1000px) { .brand .txt, .brand small { display: none; } .watch .when { display: none; } button { padding: 0 9px; } }
+</style>
+</head>
+<body>
+<div class="bar">
+  <div class="brand"><i><svg viewBox="0 0 24 24"><path d="M3 12h4l2 3h6l2-3h4"/></svg></i><span class="txt">HR Desk</span><small id="ver"></small></div>
+  <div id="tabs" role="tablist" style="display:flex;gap:2px;align-items:center;min-width:0"></div>
+  <div class="spacer"></div>
+  <span class="hint" id="hint" role="status" aria-live="polite"></span>
+  <button class="watch" id="watch" title="盯梢状态，点开：立即扫一轮 / 暂停"></button>
+  <div class="sep"></div>
+  <button class="icon" id="back" title="后退"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
+  <button class="icon" id="reload" title="刷新这一页 (F5)"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg></button>
+</div>
+<script>
+  const $ = (id) => document.getElementById(id);
+  const esc = (s = '') => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const CHEV = '<svg viewBox="0 0 24 24" style="width:12px;height:12px"><path d="m6 9 6 6 6-6"/></svg>';
+  let hintTimer = null;
+
+  function tabBtn(t, s) {
+    const b = document.createElement('button');
+    b.className = 'tab'; b.setAttribute('role', 'tab');
+    b.setAttribute('aria-selected', String(t.id === s.active));
+    b.append(t.name);
+    b.title = [t.tip, t.key].filter(Boolean).join(' · ');
+    if (t.n != null) {
+      const n = document.createElement('span'); n.className = 'n' + (t.hot ? ' hot' : ''); n.textContent = t.n; n.hidden = !t.n;
+      b.append(n);
+    }
+    b.onclick = () => desk.tab(t.id);
+    return b;
+  }
+
+  function render(s) {
+    $('ver').textContent = s.version ? 'v' + s.version : '';
+    const box = $('tabs'); box.innerHTML = '';
+    for (const t of s.tabs) box.append(tabBtn(t, s));
+    // 更多▾：平台页收在这里；当前在某个平台页时按钮直接显示它的名字（不用记自己在哪）
+    const cur = s.more.find((t) => t.id === s.active);
+    const warn = s.more.some((t) => t.login === 'warn');
+    const m = document.createElement('button');
+    m.className = 'tab'; m.setAttribute('aria-selected', String(!!cur)); m.id = 'more';
+    m.title = warn ? '有平台的盯梢页没登录，点开看是哪个' : 'BOSS / 智联 / 51job / 猎聘 / 企查查';
+    m.innerHTML = `${warn ? '<span class="dot warn"></span>' : ''}${esc(cur ? cur.name : '更多')}${CHEV}`;
+    m.onclick = () => popup('more', m);
+    box.append(m);
+    renderWatch(s.watch);
+  }
+
+  function renderWatch(w) {
+    const el = $('watch');
+    if (!w) { el.className = 'watch'; el.innerHTML = '<span class="dot"></span><span class="lbl">盯梢</span><span class="when">读不到状态</span>'; return; }
+    el.className = 'watch ' + (w.level === 'bad' ? 'bad' : w.level === 'warn' ? 'warn' : '');
+    const plats = w.plats.map((p) => `<span class="${p.ok ? '' : 'bad'}" title="${esc(p.note)}"><b>${esc(p.name)}</b><em class="${p.live ? '' : 'slow'}">${esc(p.mode)}</em></span>`).join('');
+    el.innerHTML = `<span class="dot ${w.dot}${w.busy ? ' pulse' : ''}"></span><span class="lbl">${esc(w.title)}</span>`
+      + (w.level === 'ok' ? `<span class="plats">${plats}</span><span class="short">${w.plats.length} 个平台</span>` : '')
+      + (w.when ? `<span class="when">${esc(w.when)}</span>` : '') + CHEV;
+    el.title = w.tip || '';
+  }
+
+  function popup(which, el) {
+    const r = el.getBoundingClientRect();
+    desk.menu(which, Math.round(r.left), Math.round(r.bottom + 4));
+  }
+
+  desk.onState(render);
+  desk.onHint((text) => {
+    $('hint').textContent = text || '';
+    clearTimeout(hintTimer);
+    if (text) hintTimer = setTimeout(() => ($('hint').textContent = ''), 5000);
+  });
+  $('watch').onclick = () => popup('watch', $('watch'));
+  $('reload').onclick = () => desk.reload();
+  $('back').onclick = () => desk.back();
+  addEventListener('keydown', (e) => {
+    if (e.key === 'F5') desk.reload();
+    if (e.key === 'F12') desk.devtools();
+  });
+</script>
+</body>
+</html>

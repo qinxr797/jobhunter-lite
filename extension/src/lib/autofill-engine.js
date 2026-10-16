@@ -12,7 +12,7 @@
  * 永远不点提交。模型走 config.models.autofill（DeepSeek deepseek-flash）。
  */
 import { callJson, forTask } from './llm.js';
-import { factsFrom, factsForModel, localRule, synKey, SYNONYMS, checkFormat, parseSource, listOfSection, sectionKind, SENSITIVE, matchOption, normLabel, norm } from './autofill-lib.js';
+import { factsFrom, factsForModel, localRule, synKey, SYNONYMS, checkFormat, parseSource, listOfSection, sectionKind, SENSITIVE, matchOption, normLabel, norm, tidyValue, listKind, LIST_NAME } from './autofill-lib.js';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -87,6 +87,7 @@ function mapPrompt(fields, job, note = '') {
     ref: f.key, label: f.label || '(没认出标签)', kind: f.kind, required: f.required, section: f.sectionLabel,
     ...(f.options?.length ? { options: f.options } : {}), ...(f.placeholder ? { placeholder: f.placeholder } : {}),
     ...(f.maxLength ? { maxLength: f.maxLength } : {}), ...(f.context ? { context: f.context } : {}),
+    ...(f.range ? { range: true } : {}),
   }));
   return `任务：为网申表单的每个字段给出要填的值。
 公司：${job.company || '(没写)'}，岗位：${job.position || '(没写)'}
@@ -95,7 +96,7 @@ function mapPrompt(fields, job, note = '') {
 - 只能用素材库里有的事实。素材库里没有的（身份证号、家庭成员、紧急联系人、GPA、户口所在地、期望到岗时间等）value 给 null、status=「缺」，不要编。
 - 学历、入学时间、毕业时间取素材库 education[0] 的 degree / start / graduation；素材库没有的 value=null、status=「缺」。
 - 下拉/单选字段：value 必须是 options 里原样存在的一项，挑最贴切的；没有贴切的给 null、status=「缺」。没给 options 的下拉，value 写想选的文字。
-- 日期按字段要求的格式（看 placeholder），只知道年月的写 YYYY-MM；「至今」照写「至今」。
+- 日期按字段要求的格式（看 placeholder），只知道年月的写 YYYY-MM；「至今」照写「至今」。标了 range: true 的是起止日期连在一起的框，写成「YYYY-MM ~ YYYY-MM」。
 - 同类多条（教育、实习、项目）按 section 里的「#序号」对应素材库里的第几条：「#1」是第 1 条（下标 0）。实习/工作经历用 experiences，项目用 projects，校园/社团用 campus。
 - 描述类文本框取素材库原句，不改写事实、不加数字，超过 maxLength 就删句子，不要截半句。栏目问什么取什么：「工作内容 / 主要职责 / 职责描述」问的是做了什么，取 duty（没有就取 brief）；「工作成果 / 业绩」才取 result；「项目描述 / 经历描述」没细分的取 content。
 - 开放题（为什么选择我们、职业规划、自我评价、个人优势、优缺点、你的特长等需要成段作答的）不在这里写，value=null、status=「开放题」。
@@ -127,6 +128,22 @@ ${options.map((o, i) => `${i}: ${o}`).join('\n')}
 - 学历、毕业届别按想填的内容选，没有完全一样的就选最贴近的一项。
 - 都不沾边就回 null，不要硬选。
 输出 json：{"pick": 编号或 null, "reason": "一句话"}`;
+}
+
+const POPUP_SCHEMA = { type: 'object', properties: { click: { type: ['integer', 'null'] }, reason: { type: 'string' } }, required: ['click'] };
+function popupPrompt(label, target, clicked, html) {
+  return `任务：网申表单里一个选择框点开后弹出了一层（选城市 / 学校 / 专业这类，可能有好几个标签页、好几级），帮我决定下一步点哪个。
+字段：${label}
+想选成：${target}
+已经点过：${clicked.length ? clicked.join(' → ') : '（还没点）'}
+弹层的精简 HTML（能点的元素带 r="编号"，带 sel 的是已经选中的）：
+${html}
+
+规则：
+- 一次只点一个，回能让它离「想选成」更近的那个编号：先点对应的标签页 / 上一级（比如省「浙江」），再点目标（「杭州」）；学校、专业没有原样的，选意思最近的上一级类目。
+- 「确定」「保存」「提交」「取消」「关闭」这类按钮不要选，程序不会点它们。
+- 已经选中了想要的、或者弹层里根本没有沾边的，click 回 null，reason 说一句为什么。
+输出 json：{"click": 编号或 null, "reason": "一句话"}`;
 }
 
 const ANSWER_SCHEMA = { type: 'object', properties: { answer: { type: 'string' } }, required: ['answer'] };
@@ -300,6 +317,9 @@ async function fillPageInner(opts) {
     await sleep(1000);
     ({ fields, adds } = await scanAll());
   }
+  // ---- 「编辑 → 保存」型分块：点这一块的编辑 → 填新冒出来的框 → 点这一块自己的保存 → 读红字（10/16 你同意点分块的保存）
+  await editSaveBlocks();
+
   // 组数最后核对一遍（第 13 条 a：填完核对条数）
   for (const n of groupsNeeded(fields, facts)) {
     if (n.have < n.want && !gaveUp.has(n.kind)) warnings.push(`${n.section}：素材库有 ${n.want} 段，页面上只有 ${n.have} 组（没找到「添加」按钮），差的 ${n.want - n.have} 段没填`);
@@ -497,6 +517,9 @@ async function fillPageInner(opts) {
   /** 按字段类型填一个值，回读核对；r.status 置为 已填 / 没生效 */
   async function put(r, value) {
     if (value == null || value === '') { r.status = '缺'; return; }
+    // 值先收拾成框要的样子（去 +86、去 cm/kg、要到日的补 -01），再校验、再填
+    const tidy = tidyValue(r, value);
+    if (tidy !== String(value)) { r.notes.push(`值按框的要求改成了「${tidy}」`); value = tidy; }
     const bad = checkFormat(r, value, facts, r.source);
     if (bad && !/超过字数/.test(bad) && !(r.options?.length && matchOption(r.options, value) >= 0)) {
       r.status = '没生效'; r.color = 'red'; r.notes.push(`值没过格式校验，没填：${bad}`); r.tried = value; return;
@@ -527,11 +550,18 @@ async function fillPageInner(opts) {
           if (ok) r.notes.push('联想框里没有现成选项，直接写进去了');
         }
       } else if (r.kind === 'date') {
-        const v = dateFormat(value, r.placeholder);
-        let s = await ask(tabId, r.frameId, 'typeDate', { ref: r.ref, value: v });
+        const v = r.range ? rangeFormat(value, r.placeholder) : dateFormat(value, r.placeholder);
+        // 起止日期连在一起的框打字只进得了第一格，直接走面板
+        let s = r.range ? { ok: false, readonly: true } : await ask(tabId, r.frameId, 'typeDate', { ref: r.ref, value: v });
         if (!s.ok && r.frameId === 0 && !s.readonly) s = await typeWithDebugger(r, v, true);
+        if (!s.ok && /^\d{4}/.test(v)) {
+          // 只读框（或者打字没生效）：打开日期面板，翻到目标年月再点日；页面脚本点完自己回读，对不上就是没填上
+          const why0 = s.readonly ? '不让直接输入' : '打字没生效';
+          const p = await ask(tabId, r.frameId, 'pickDate', { ref: r.ref, value: v }, 45000).catch((e) => ({ ok: false, why: e.message }));
+          if (p.ok) { s = p; r.notes.push(`日期框${why0}，在日期面板上点选的`); }
+          else { s = { ok: false, got: p.got || s.got || '' }; r.notes.push(`日期框${why0}，面板点选没填上：${p.why || '回读对不上'}，你点一下选`); }
+        }
         ok = s.ok; got = s.got || '';
-        if (!ok && s.readonly) r.notes.push('日期框不让直接输入，你点一下选');
       } else {
         const s = await ask(tabId, r.frameId, 'fillText', { ref: r.ref, value });
         ok = s.ok; got = s.got || '';
@@ -569,7 +599,8 @@ async function fillPageInner(opts) {
       // 可能是带搜索、要先打字的下拉
       st = await ask(tabId, r.frameId, 'openSelect', { ref: r.ref, search: segs[segs.length - 1] });
     }
-    if (!st.open) { await ask(tabId, r.frameId, 'closePopups'); return { ok: false, got: '' }; }
+    // 常见组件库的选项读不出来：走认不出的弹层那条（模型看精简 HTML 一步步点）
+    if (!st.open || !(st.menus || []).some((m) => m.length)) { await ask(tabId, r.frameId, 'closePopups'); return popupAgent(r, value, ''); }
     const parents = [];
     for (let level = 0; level < 5; level++) {
       const menu = st.menus[st.menus.length - 1] || [];
@@ -592,11 +623,55 @@ async function fillPageInner(opts) {
     const rb = await ask(tabId, r.frameId, 'readBack', { ref: r.ref });
     const got = rb.value || '';
     const last = parents[parents.length - 1] || '';
+    // 认得出的下拉、只是选项里没有：不走模型逐步点（那是给认不出的弹层用的，见上面 !st.open 那条），免得一个缺项白花 5 次调用
     return { ok: !!got && (!!last && (got.includes(last) || last.includes(got))), got };
+  }
+
+  /**
+   * 认不出的弹层：页面脚本把弹层压成带编号的精简 HTML（只有弹层里的文字），模型挑点哪个，点完回读，最多 5 步。
+   * 敏感字段不走这条；弹层要点「确定 / 保存」才生效的停下让你点；点完值对上了才算填上
+   */
+  async function popupAgent(r, value, got0 = '') {
+    if (r.sensitive || isSensitive(r)) return { ok: false, got: got0 };
+    const fail = (why, got = got0) => { r.notes.push(`弹层逐步点选：${why}`); return { ok: false, got }; };
+    let st;
+    try { st = await ask(tabId, r.frameId, 'openRaw', { ref: r.ref }); } catch (e) { return fail(e.message); }
+    if (!st.ok) { await ask(tabId, r.frameId, 'closeRaw').catch(() => {}); return { ok: false, got: got0 }; }
+    say(`「${r.label}」的弹层认不出，让模型看着一步步点…`);
+    const clicked = [];
+    // 回读要含最后一级（「浙江 > 杭州」读到「浙江」不算）；只有一级的，「杭州市」读到「杭州」也算
+    const segs = String(value).split(/\s*[>/／]\s*/).filter(Boolean);
+    const lastSeg = norm(segs[segs.length - 1] || value);
+    const hit = (v) => !!v && (norm(v).includes(lastSeg) || (segs.length === 1 && norm(v).length >= 2 && lastSeg.includes(norm(v))));
+    let got = got0;
+    let why = '';
+    for (let step = 0; step < 5; step++) {
+      const snap = await ask(tabId, r.frameId, 'snapshotPopup');
+      if (!snap.html) { why = '弹层不见了'; break; }
+      let d;
+      try { d = await model('popup', popupPrompt(r.label || r.field || '', value, clicked, snap.html), POPUP_SCHEMA, 300); } catch (e) { why = `模型没回：${e.message}`; break; }
+      const n = d.click == null ? null : Number(d.click);
+      if (!Number.isInteger(n) || n < 1) { why = d.reason ? `模型说：${d.reason}` : '模型说弹层里没有能选的'; break; }
+      const c = await ask(tabId, r.frameId, 'clickR', { r: n });
+      if (!c.ok) { why = c.why || '没点上'; break; }
+      clicked.push(c.text);
+      got = (await ask(tabId, r.frameId, 'readBack', { ref: r.ref })).value || '';
+      if (hit(got)) break;
+      if (c.closed) { why = '弹层关了，值还是对不上'; break; }
+    }
+    await ask(tabId, r.frameId, 'closeRaw').catch(() => {});
+    await sleep(250);
+    got = (await ask(tabId, r.frameId, 'readBack', { ref: r.ref })).value || got;
+    if (hit(got)) { r.picked = true; r.notes.push(`弹层是模型看着一步步点的：${clicked.join(' → ')}`); return { ok: true, got }; }
+    return fail(`${why || '点了 5 步还没对上'}（点过：${clicked.join(' → ') || '无'}）`, got);
   }
 
   async function modelPick(r, target, parents, options) {
     if (r.sensitive) { r.notes.push('敏感信息不发给模型，选项对不上，你自己选'); return -1; }
+    // 省份 / 民族 / 国家 / 年份 / 月份 / 数字区间：对应关系是死的，matchOption 本地对不上就是真没有，不拿整张大表去问模型
+    // 省份例外：本地只认得省会和少数地市，外省普通地级市（比如「绍兴」）本地对不上，模型认得出属于哪个省，还是送模型
+    const lk = listKind(options);
+    if (lk && lk !== 'province') { r.notes.push(`选项是${LIST_NAME[lk]}列表，本地没对上「${String(target).slice(0, 20)}」，没送模型，你自己选`); return -1; }
     try {
       const d = await model('pick', pickPrompt(r.label || r.field || '', target, parents, options.slice(0, 200)), PICK_SCHEMA, 200);
       const n = d.pick == null ? -1 : Number(d.pick);
@@ -707,6 +782,49 @@ async function fillPageInner(opts) {
     }
   }
 
+  /**
+   * 「编辑 → 保存」型分块（国企 / 银行网申常见）：每块平时只显示文字，点「编辑」才出框，填完点这一块自己的「保存」。
+   * 每块只点一次编辑、一次保存；保存后网站报红字就原样报出来，不重试、不乱点。整页的提交 / 投递永远不点（页面脚本里也拦着）
+   */
+  async function editSaveBlocks() {
+    const units = [];
+    for (const fr of frames) {
+      let res;
+      try { res = await ask(tabId, fr.frameId, 'editBlocks'); } catch { continue; }
+      for (const u of res?.list || []) units.push({ ...u, frameId: fr.frameId });
+    }
+    for (const u of units.slice(0, 12)) {
+      say(`「${u.section}」是先点编辑、填完再保存的，点「${u.text}」…`);
+      const c = await ask(tabId, u.frameId, 'clickEdit', { ref: u.ref }).catch((e) => ({ ok: false, why: e.message }));
+      if (!c.ok) { warnings.push(`${u.section}：编辑按钮没点上（${c.why || '没反应'}），这块你手动填`); continue; }
+      await sleep(1000);
+      ({ fields, adds } = await scanAll());
+      const fresh = fields.filter((f) => !all.has(f.key) && f.frameId === u.frameId);
+      if (!fresh.length) { warnings.push(`${u.section}：点了「${u.text}」没冒出能填的框，这块你手动填`); continue; }
+      // 一块里有好几个编辑（每段经历一个）、打开的表单又只认成第 1 组：按第几个编辑对应素材库第几条
+      for (const f of fresh) {
+        if (u.nth > 1 && (f.index || 1) === 1 && listOfSection(f.section || u.section)) {
+          f.index = u.nth;
+          f.sectionLabel = `${f.section || u.section} #${u.nth}`;
+        }
+        if (!f.section) { f.section = u.section; f.sectionLabel = f.sectionLabel || u.section; }
+        all.set(f.key, { ...f, status: '', value: f.value, filled: '', source: '', by: '', notes: [] });
+      }
+      await processFields(fresh);
+      const s = await ask(tabId, u.frameId, 'saveBlock', { refs: fresh.map((f) => f.ref) }).catch((e) => ({ ok: false, why: e.message }));
+      if (s.errors?.length) {
+        warnings.push(`${u.section}：点了「${s.clicked}」，网站报错：${s.errors.join('；')}。已标红，插件不重试，你看一下`);
+        for (const f of fresh) { const r = all.get(f.key); if (r) { r.color = 'red'; r.notes.push(`保存时网站报错：${s.errors.join('；')}`); } }
+      } else if (!s.clicked) {
+        warnings.push(`${u.section}：${s.why || '没找到这一块的保存按钮'}`);
+      } else {
+        for (const f of fresh) all.get(f.key)?.notes.push(`填完点了这一块的「${s.clicked}」`);
+      }
+      await sleep(800);
+      ({ fields, adds } = await scanAll());
+    }
+  }
+
   async function collectSiteErrors() {
     let n = 0;
     for (const fr of frames) {
@@ -765,6 +883,11 @@ function dateFormat(v, ph = '') {
   if (/日|DD|dd|年-月-日|yyyy-mm-dd/i.test(ph)) return `${y}-${mo}-${d}`;
   if (/\//.test(ph)) return `${y}/${mo}`;
   return `${y}-${mo}`;
+}
+/** 起止日期框的值：「2022-09 ~ 2026-06」/「2022.09-2026.06」→ 每段按 dateFormat 收拾后用「 ~ 」连起来 */
+function rangeFormat(v, ph = '') {
+  const ds = [...String(v).matchAll(/(\d{4})[-./年](\d{1,2})(?:[-./月](\d{1,2})日?)?/g)].map((m) => dateFormat(m[0], ph));
+  return ds.length ? ds.slice(0, 2).join(' ~ ') : String(v);
 }
 
 /** 素材库每类几条 vs 页面每个分块几组 */

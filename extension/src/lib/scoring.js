@@ -146,14 +146,12 @@ export function checkGreeting(text, config) {
   // 设置里填了作品集网址：开场第一句亮个人站，模型写的经历接在后面。
   // 注意：BOSS 曾把带网址的「个人优势」判成「内容可能包含敏感信息」卡审核，第一次发后去聊天页看一眼有没有原样送达。
   const site = config.library?.profile?.site?.link;
-  let siteLen = 0;
   if (site) {
     const short = site.replace(/^https?:\/\//, '').replace(/\/$/, '');
     // 模型要是自己写了网址，去掉网址本身
     if (out.includes(short)) out = out.split(site).join('').split(short).join('').replace(/[:：]\s*(?=[，。！？,.!?])/g, '').replace(/\s{2,}/g, ' ');
     // 以前程序补的作品集句子（9/27 结尾版、9/29 第二句版）先拿掉，统一按开头重补
     out = out.replace(/[^。！!？?]*作品集网站[^。！!？?]*[。！!]?/g, '').trim();
-    siteLen = 50;
     if (!/作品集|个人站/.test(out)) {
       let hi = '';
       out = out.replace(/^(您好|你好)[^，,。！!]*[，,！!]\s*/, (m) => { hi = m; return ''; });
@@ -168,8 +166,10 @@ export function checkGreeting(text, config) {
     }
   }
 
-  const max = config.greeting?.maxChars || 170;
-  if (out.length > max + 30 + siteLen) problems.push(`太长了（${out.length} 字，上限 ${max}）`);
+  // 只量正文：程序补的作品集那句不算（以前量全文还多放 30 字，正文写到 115 字也能过）
+  const body = out.replace(/[^。！!？?]*作品集网站[^。！!？?]*[。！!]?/g, '').trim();
+  const max = config.greeting?.maxChars || 85;
+  if (body.length > max) problems.push(`太长了（正文 ${body.length} 字，上限 ${max}，作品集那句不算）`);
 
   return { text: out, problems };
 }

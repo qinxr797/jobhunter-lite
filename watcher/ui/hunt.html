@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>找岗位</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2318181b'/%3E%3Cpath d='m24 8-6 17-3.5-7.5L7 14z' fill='none' stroke='white' stroke-width='2' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="hunt.css">
+<style>
+  #hback[hidden] { display: none; }
+  /* v2.2.0：排队 / 没投成并进投递页后，顶上只留一句指路 */
+  .h-fly { font-size: var(--fs-sm); color: var(--text-3); text-decoration: none; white-space: nowrap; padding: 0 8px; border-radius: var(--r-sm); line-height: 26px; }
+  .h-fly:hover { color: var(--text); background: var(--muted); }
+  .h-fly .bad { color: var(--danger); font-weight: 600; }
+  .h-tabs:has(.h-fly) { background: none; padding: 0; gap: 8px; align-items: center; }
+  .h-tabs:has(.h-fly) > button.cur { background: var(--muted); box-shadow: none; }
+  /* v2.3.0：来源芯片（BOSS / 51job / 智联 / 猎聘 / 网申）+ 网申截止日 + 多来源确认框 */
+  .p-campus { background: var(--text-3); }
+  .h-src { display: flex; align-items: center; gap: 6px; padding: 12px 16px 0; flex-wrap: wrap; }
+  .h-src-l { font-size: var(--fs-sm); color: var(--text-3); margin-right: 4px; }
+  .h-src .chip { height: 30px; padding: 0 12px 0 8px; font-size: var(--fs-md); }
+  .h-src .chip[data-src=""] { padding-left: 12px; }
+  .h-src .chip .plat-ico { width: 16px; height: 16px; font-size: 9px; border-radius: 4px; }
+  .h-src .chip.zero:not(.on) { opacity: .5; }
+  .h-src .chip .dot { width: 6px; height: 6px; }
+  .co small.dl { color: var(--info); font-weight: 600; }
+  .co small.dl em { font-style: normal; font-weight: 400; color: var(--text-3); }
+  /* 来源芯片选中用浅底，不和下面预设的黑底抢（一页一个焦点） */
+  .h-src .chip.on { background: var(--active); border-color: var(--text-4); color: var(--text); }
+  .h-src .chip.on span { color: var(--text-3); opacity: 1; }
+  .h-src-warn { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-sm); color: var(--danger); margin-left: 6px; }
+  .h-src-warn .i { width: 14px; height: 14px; }
+  .h-step { display: inline-flex; align-items: center; gap: 6px; margin-right: 14px; white-space: nowrap; }
+  .h-step b { font-weight: 650; color: var(--text); }
+  .h-step.error { color: var(--danger); }
+  .h-step.done b { color: var(--ok); }
+  .h-line:has(.h-step) { flex-wrap: wrap; row-gap: 2px; }
+  .co small.dl.late { color: var(--danger); }
+  .run-card { width: min(560px, calc(100vw - 32px)); }
+  .run-list { border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
+  .run-row { display: flex; gap: 10px; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--line); cursor: pointer; font-size: var(--fs-md); }
+  .run-row:last-child { border-bottom: 0; }
+  .run-row:hover { background: var(--hover); }
+  .run-row input { accent-color: var(--primary); width: 15px; height: 15px; margin: 0; }
+  .run-row > div { flex: 1; min-width: 0; }
+  .run-row b { font-weight: 600; }
+  .run-row small { display: block; color: var(--text-3); font-size: var(--fs-sm); }
+  .run-row small.bad { color: var(--danger); }
+  .run-row .eta { color: var(--text-2); font-size: var(--fs-sm); white-space: nowrap; }
+  .run-row:has(input:not(:checked)) { opacity: .55; }
+  .run-sum { font-size: var(--fs-sm) !important; color: var(--text-3) !important; }
+</style>
+</head>
+<body class="hunt">
+<header class="h-top">
+  <a class="btn ghost sm" id="hback" href="index.html" title="回收件箱" hidden><svg class="i"><use href="#i-back"/></svg>收件箱</a>
+  <h1><span id="hname">找岗位</span><small id="ver"></small></h1>
+  <nav class="h-tabs" id="tabs" role="tablist"></nav>
+  <div class="h-right" id="hright"></div>
+</header>
+<div id="hline" class="h-line" hidden></div>
+<!-- 待审页：筛选栏（搜索框是静态的，刷新不会把光标踢掉）+ 表格 -->
+<section id="review" class="h-review" hidden>
+  <div class="h-src" id="sources" role="group" aria-label="按来源筛"></div>
+  <div class="h-fbar">
+    <div class="h-presets" id="presets"></div>
+    <label class="search h-q"><svg class="i"><use href="#i-search"/></svg><input id="fq" placeholder="搜公司、岗位、理由"><kbd>/</kbd></label>
+  </div>
+  <div class="h-facets" id="facets"></div>
+  <div class="h-tbar" id="tbar"></div>
+  <div class="h-scroll" id="tscroll"><div id="table"></div></div>
+</section>
+<main id="hmain"></main>
+<aside id="drawer" class="h-drawer" hidden></aside>
+<div id="hbatch" class="h-batch" hidden></div>
+<div id="toasts"></div>
+<div id="hset" class="modal" hidden></div>
+<div id="hconfirm" class="modal" hidden></div>
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <!-- 图标来自 Lucide（ISC 许可），和收件箱同一套 -->
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+    <symbol id="i-send" viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="m6 3 14 9-14 9z"/></symbol>
+    <symbol id="i-stop" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2"/></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+    <symbol id="i-ext" viewBox="0 0 24 24"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></symbol>
+    <symbol id="i-msg" viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22z"/></symbol>
+    <symbol id="i-undo" viewBox="0 0 24 24"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-15-6.7L3 13"/></symbol>
+    <symbol id="i-bot" viewBox="0 0 24 24"><path d="M12 8V4H8"/><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M2 14h2M20 14h2M15 13v2M9 13v2"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></symbol>
+    <symbol id="i-chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+    <symbol id="i-filter" viewBox="0 0 24 24"><path d="M22 3H2l8 9.46V19l4 2v-8.54z"/></symbol>
+    <symbol id="i-flag" viewBox="0 0 24 24"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1zM4 22v-7"/></symbol>
+  </defs>
+</svg>
+<script src="hunt.js"></script>
+</body>
+</html>

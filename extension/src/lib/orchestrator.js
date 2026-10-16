@@ -17,6 +17,7 @@ import { prescreen, detailScreen, checkGreeting, workloadFlags, companyTier, coh
 import { cohortOf } from './library.js';
 import { evaluateJob, followupMessage } from './llm.js';
 import { getArchive, recordChannel, appliedElsewhere, sameCompany, findEntry } from './company-archive.js';
+import { readProgress } from './progress.js';
 
 const CHAT_URL_RE = /zhipin\.com\/web\/geek\/chat/;
 
@@ -238,6 +239,10 @@ export async function run(opts = {}) {
 
     if (!P.detail) await handBackFront();
 
+    // 51job / 智联：筛之前现读一遍平台投递记录（刚代投的也算上），后面去重和清待审都用这份
+    if (P.id === '51job' || P.id === 'zhilian') await readProgress({ fresh: true }).catch(() => {});
+    await pruneStaleQueued();
+
     // 2. 去重 + 本地初筛
     const rt0 = await getRuntime();
     const seen = cleanPrescreenSeen(rt0);
@@ -249,6 +254,13 @@ export async function run(opts = {}) {
       // 网申补一句：只看这家公司的岗位；以前看过的也重新看（那时还没网申）
       if (fu && !sameCompany(job.company, fu.company)) { skipped++; continue; }
       if ((!fu && seen[job.jobId]) || listed.has(job.jobId)) { skipped++; continue; }
+      // v1.2.4：去重记录丢了（10/16 存储被清过）也不怕，51job / 智联再对一遍平台投递记录
+      const prior = await appliedOnPlatform(job);
+      if (prior) {
+        skipped++; seen[job.jobId] = Date.now();
+        await log('info', `之前已投过：${job.title} @ ${job.company}（${prior.appliedAt || '平台投递记录里有'}）`);
+        continue;
+      }
       const pre = prescreen(job, config);
       if (!pre.pass) {
         skipped++;
@@ -257,6 +269,7 @@ export async function run(opts = {}) {
       }
       candidates.push(job);
     }
+    await setRuntime({ seen });
     await log('info', `初筛：${collected.size} 个岗位 → ${candidates.length} 个进${P.detail ? '详情页' : '模型评估'}，${skipped} 个看过/淘汰`);
 
     if (!candidates.length) {
@@ -400,6 +413,9 @@ export async function run(opts = {}) {
 function cleanPrescreenSeen(rt) {
   const seen = { ...(rt.seen || {}) };
   if (rt.seenCleanV052) return seen;
+  // v1.2.5（10/16）：这段清理早就跑过了，不再跑。存储被清空后标记也会没，这时候成批写回来的去重记录
+  // 时间戳全挤在一起，会被当成「初筛淘汰」删掉（283 条删剩 148 条）。现在只补上标记，不删任何记录
+  if (Object.keys(seen).length) { setRuntime({ seenCleanV052: true }); return seen; }
   const ts = Object.values(seen).sort((a, b) => a - b);
   const crowded = (t) => { const i = ts.indexOf(t); return (i > 0 && t - ts[i - 1] < 30) || (i < ts.length - 1 && ts[i + 1] - t < 30); };
   let n = 0;
@@ -441,6 +457,47 @@ async function recordSent(item, chatSalary) {
     // stats.sent 只数 BOSS 的招呼（每天上限管的是它）；51job / 智联从 done 里按平台数
     stats: { ...rt.stats, sent: rt.stats.sent + ((job.platform || 'boss') === 'boss' ? 1 : 0) },
   }));
+}
+
+/**
+ * v1.2.3（10/16）：待审里放了几天的岗位，期间你可能在平台上手动投过，插件不知道。
+ * 拿 51job「我的申请」/ 智联「求职反馈」（progress.js，缓存 30 分钟）对一遍，按岗位 ID 或「公司 + 岗位名」认。
+ * 读不到进度就当没投过，不拦。BOSS 没有这种列表，不查。
+ */
+const normCo = (s) => String(s || '').replace(/\s|（.*?）|\(.*?\)|有限公司|有限责任公司|股份/g, '');
+const normTi = (s) => String(s || '').replace(/\s/g, '');
+async function appliedOnPlatform(job, { fresh = false } = {}) {
+  const plat = job.platform || 'boss';
+  if (plat !== '51job' && plat !== 'zhilian') return null;
+  const prog = await readProgress({ fresh }).catch(() => null);
+  const items = (plat === '51job' ? prog?.job51?.items : prog?.zhilian?.items) || [];
+  const id = String(job.rawId || job.jobId || '');
+  const co = normCo(job.company), ti = normTi(job.title);
+  return items.find((p) => (id && p.jobId && String(p.jobId) === id)
+    || (co && normCo(p.company) === co && normTi(p.title) === ti)) || null;
+}
+
+/** 之前已经投过的：移出列表、记进去重和公司档案，不算今天投的、不占上限、不进「已投」 */
+async function recordAlready(item, appliedAt = '') {
+  const job = item.job;
+  const at = Date.parse(String(appliedAt).replace(' ', 'T'));
+  await recordChannel(job.company, job.platform || 'boss', { title: job.title, ...(Number.isFinite(at) ? { at } : {}) }).catch(() => {});
+  await setRuntime((rt) => ({
+    seen: { ...rt.seen, [job.jobId]: Date.now() },
+    queue: (rt.queue || []).filter((q) => q.job.jobId !== job.jobId),
+  }));
+}
+
+/** 筛选开始时：待审里的 51job / 智联岗位，在平台上已经投过的扫掉（v1.2.4 不再只看放了 3 天以上的） */
+async function pruneStaleQueued() {
+  const old = ((await getRuntime()).queue || []).filter((q) => q.status === '待审核'
+    && ['51job', 'zhilian'].includes(q.job.platform));
+  let n = 0;
+  for (const q of old) {
+    const prior = await appliedOnPlatform(q.job);
+    if (prior) { await recordAlready(q, prior.appliedAt); n++; }
+  }
+  if (n) await log('info', `待审里 ${n} 个岗位在平台上已经投过了（你在平台上投过的），已从列表拿掉`);
 }
 
 /** 你按「不投」：从列表拿掉，记进去重，下次筛选不再出现 */
@@ -534,10 +591,23 @@ async function sendWorker() {
       const next = (rt.queue || []).filter((q) => q.status === '排队' && !(full && isBoss(q))).sort((a, b) => a.approvedAt - b.approvedAt)[0];
       if (!next) break;
 
+      // 发之前先对平台投递记录（51job「我的申请」/ 智联「求职反馈」），之前投过的直接拿掉，不开页面、不占上限
+      const prior = await appliedOnPlatform(next.job);
+      if (prior) {
+        await recordAlready(next, prior.appliedAt);
+        await log('info', `之前已投过，跳过：${next.job.title} @ ${next.job.company}（${prior.appliedAt || '平台投递记录里有'}，${prior.status || '已投递'}）`);
+        continue;
+      }
+
       await updateItem(next.job.jobId, { status: '发送中' });
       const res = await sendOne(next);
       const label = `${next.job.title} @ ${next.job.company}`;
 
+      if (res.already) {
+        await recordAlready(next);
+        await log('info', `之前已投过，跳过：${label}（${res.note}），不算今天投的`);
+        continue;
+      }
       if (res.ok) {
         sentThisRound++;
         await recordSent(next, res.chatSalary);
@@ -633,7 +703,8 @@ async function doApply(tabId, item, config) {
   const jobKey = item.job.rawId || item.job.jobId;
   const btn = await tell(tabId, 'locateApply', { jobId: jobKey });
   if (!btn.found) return { ok: false, error: btn.error || '找不到投递按钮', guard: btn.guard };
-  if (btn.applied) return { ok: true, note: '页面显示已经投递过' };
+  // 还没点就显示「已投递」= 以前投过的，不是这次投成的（10/16：被当成刚投出，还占了上限）
+  if (btn.applied) return { ok: true, already: true, note: '页面显示已经投递过' };
 
   await sleep(rand(600, 1400));
   await dbg.clickAt(tabId, btn.x, btn.y);
@@ -677,7 +748,11 @@ async function doApply(tabId, item, config) {
   // 最后看按钮是不是变成「已投递」
   const again = await tell(tabId, 'locateApply', { jobId: jobKey }).catch(() => ({}));
   if (again.applied) return { ok: true, note: '按钮已变成已投递' };
-  return { ok: false, greetedDefault: true, error: '点了投递但没看到成功提示，去页面上确认一下投没投出去' };
+  // 10/16：51job 详情页投上了也常常不给提示（7 家里 6 家其实投上了）。去「我的申请」现读一遍再下结论
+  await sleep(3000);
+  const rec = await appliedOnPlatform(item.job, { fresh: true }).catch(() => null);
+  if (rec) return { ok: true, note: `页面没提示，但${(item.job.platform || 'boss') === '51job' ? '「我的申请」' : '「求职反馈」'}里已经有这条` };
+  return { ok: false, greetedDefault: true, error: '点了投递但没看到成功提示，投递记录里也没查到，去页面上确认一下投没投出去' };
 }
 
 /**

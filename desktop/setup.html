@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'">
+<title>设置</title>
+<style>
+  /* 首次设置向导。颜色照收件箱的 tokens（shadcn zinc），全页只有「保存，开始用」是实心深色 */
+  :root {
+    --bg: #ffffff; --side: #fafafa; --muted: #f4f4f5; --line: #e4e4e7; --line-2: #d4d4d8;
+    --text: #09090b; --text-2: #52525b; --text-3: #71717a; --text-4: #a1a1aa;
+    --primary: #18181b; --primary-fg: #fafafa; --ok: #16a34a; --ok-soft: #eaf7ee; --danger: #dc2626; --danger-soft: #fdecec;
+    --font: "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", "PingFang SC", system-ui, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0c0c0e; --side: #111113; --muted: #1c1c1f; --line: #27272a; --line-2: #3f3f46; --text: #fafafa; --text-2: #b4b4bc; --text-3: #8b8b94; --text-4: #5b5b63;
+      --primary: #fafafa; --primary-fg: #18181b; --ok: #3fbf6a; --ok-soft: #10261a; --danger: #f05252; --danger-soft: #2c1414; }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--side); color: var(--text); font: 14px/1.6 var(--font); }
+  main { max-width: 720px; margin: 0 auto; padding: 32px 24px 120px; }
+  h1 { font-size: 22px; margin: 0 0 4px; letter-spacing: -.01em; }
+  .lead { color: var(--text-2); margin: 0 0 24px; }
+  section { background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+  h2 { font-size: 15px; margin: 0 0 2px; display: flex; align-items: center; gap: 8px; }
+  h2 .num { width: 22px; height: 22px; border-radius: 50%; background: var(--muted); color: var(--text-2); font-size: 12px; display: inline-flex; align-items: center; justify-content: center; font-weight: 600; }
+  h2 .opt { font-size: 12px; color: var(--text-3); font-weight: 400; }
+  .sub { color: var(--text-3); font-size: 13px; margin: 0 0 14px; }
+  label { display: block; font-size: 13px; color: var(--text-2); margin: 14px 0 6px; font-weight: 500; }
+  label small { color: var(--text-3); font-weight: 400; margin-left: 6px; }
+  input, textarea, select { width: 100%; font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line-2); border-radius: 8px; padding: 8px 10px; }
+  input:focus, textarea:focus, select:focus { outline: 2px solid var(--text-4); outline-offset: 0; }
+  textarea { resize: vertical; min-height: 88px; }
+  #resumeText { min-height: 180px; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+  @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
+  button { font: inherit; height: 34px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--line-2); background: var(--bg); color: var(--text); cursor: pointer; white-space: nowrap; }
+  button:hover { background: var(--muted); }
+  button:disabled { opacity: .5; cursor: default; }
+  button.primary { background: var(--primary); color: var(--primary-fg); border-color: var(--primary); height: 40px; padding: 0 20px; font-weight: 600; }
+  .msg { font-size: 13px; color: var(--text-3); }
+  .msg.ok { color: var(--ok); } .msg.bad { color: var(--danger); }
+  .seg { display: inline-flex; border: 1px solid var(--line-2); border-radius: 8px; overflow: hidden; }
+  .seg label { margin: 0; padding: 6px 14px; cursor: pointer; color: var(--text-2); }
+  .seg input { display: none; }
+  .seg label:has(input:checked) { background: var(--muted); color: var(--text); font-weight: 600; }
+  details > summary { cursor: pointer; list-style: none; }
+  details > summary::-webkit-details-marker { display: none; }
+  details > summary h2::after { content: '展开'; margin-left: auto; font-size: 12px; color: var(--text-3); font-weight: 400; }
+  details[open] > summary h2::after { content: '收起'; }
+  .foot { position: fixed; left: 0; right: 0; bottom: 0; background: var(--bg); border-top: 1px solid var(--line); }
+  .foot div { max-width: 720px; margin: 0 auto; padding: 12px 24px; display: flex; align-items: center; gap: 12px; }
+  .foot .msg { flex: 1; }
+  a { color: inherit; }
+  [hidden] { display: none !important; }
+  .envline { font-size: 13px; padding: 8px 12px; border-radius: 8px; margin: 0 0 16px; background: var(--muted); color: var(--text-2); }
+  .envline.bad { background: var(--danger-soft); color: var(--danger); }
+</style>
+</head>
+<body>
+<main>
+  <h1>先花 3 分钟设置一下</h1>
+  <div class="envline" id="env" hidden></div>
+  <p class="lead">带 <b>1～3</b> 的必须填，填完就能用；后面的可以以后再补，顶栏「更多 › 设置」随时回来改。所有内容只存在你自己电脑上（安装目录的 data 文件夹）。</p>
+
+  <section>
+    <h2><span class="num">1</span>DeepSeek 的 API Key</h2>
+    <p class="sub">判断岗位、帮你起草回复都靠它。去 <b>platform.deepseek.com</b> 注册、充 10 元，在「API Keys」里创建一个粘到这里。</p>
+    <input id="apiKey" placeholder="sk-…" spellcheck="false" autocomplete="off">
+    <div class="row"><button id="test">测试连接</button><span class="msg" id="testMsg"></span></div>
+  </section>
+
+  <section>
+    <h2><span class="num">2</span>你和你要找的工作</h2>
+    <div class="grid">
+      <div><label for="city">求职城市</label><input id="city" placeholder="例：杭州"></div>
+      <div><label>称呼你用</label><div class="seg"><label><input type="radio" name="pronoun" value="他" checked>他</label><label><input type="radio" name="pronoun" value="她">她</label></div></div>
+    </div>
+    <label for="intro">一句话介绍自己<small>写给 HR 的回复、判断岗位时都会用</small></label>
+    <input id="intro" placeholder="例：2025 届市场营销本科，做过一年新媒体运营实习">
+    <label for="keywords">想找的岗位<small>一行一个，或用逗号隔开</small></label>
+    <textarea id="keywords" placeholder="例：新媒体运营&#10;行政助理&#10;数据分析"></textarea>
+  </section>
+
+  <section>
+    <h2><span class="num">3</span>简历</h2>
+    <p class="sub">把简历全文复制粘贴进来；或者点「从文件读」选一个 .txt / .md。PDF 和 Word 请打开后全选复制。</p>
+    <textarea id="resumeText" placeholder="姓名、教育、经历、技能……原样粘贴就行"></textarea>
+    <div class="row">
+      <button id="pick">从文件读</button>
+      <button id="parse" title="把简历拆成结构化信息，网申自动填表会更准；要用到上面的 Key">解析简历（可选）</button>
+      <span class="msg" id="parseMsg"></span>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">4</span>求职标准<span class="opt">选填</span></h2>
+    <p class="sub">判断「投不投」时会照这个来。写你在意的：要不要双休、通勤多远、哪类公司不去。</p>
+    <textarea id="criteria" placeholder="例：必须双休、六点前下班；不去外包、电销、保险；通勤单程 40 分钟以内"></textarea>
+    <div class="grid">
+      <div><label for="salaryExpect">期望薪资<small>HR 问起时照这个答</small></label><input id="salaryExpect" placeholder="例：6-8K"></div>
+      <div><label for="nearDistricts">通勤能接受的区</label><input id="nearDistricts" placeholder="例：西湖区，滨江区"></div>
+    </div>
+  </section>
+
+  <details>
+    <summary><section style="margin-bottom:0"><h2><span class="num">5</span>更多<span class="opt">选填</span></h2><p class="sub" style="margin:0">作品集、拉黑公司、微信、手机提醒</p></section></summary>
+    <section style="margin-top:8px">
+      <label for="portfolio">作品集 / 个人主页网址</label><input id="portfolio" placeholder="https://…" spellcheck="false">
+      <label for="blacklist">拉黑的公司<small>一行一个，这些公司的岗位直接跳过</small></label><textarea id="blacklist"></textarea>
+      <label for="wechatAlt">给 HR 的微信号<small>HR 要微信时给这个（可以用小号）</small></label><input id="wechatAlt" spellcheck="false">
+      <label for="tgToken">Telegram 提醒<small>有面试邀请时推到手机；不用就空着</small></label>
+      <div class="grid"><input id="tgToken" placeholder="Bot Token" spellcheck="false"><input id="tgChat" placeholder="Chat ID（问 @userinfobot）" spellcheck="false"></div>
+      <label for="tgProxy">代理地址<small>国内连不上 Telegram，填你代理软件的地址，比如 http://127.0.0.1:7890</small></label>
+      <input id="tgProxy" placeholder="http://127.0.0.1:7890" spellcheck="false">
+      <p class="sub" style="margin:8px 0 0">填完先在 Telegram 里给你的 bot 发一条 /start，不然它没法主动给你发消息。</p>
+    </section>
+  </details>
+</main>
+<div class="foot"><div>
+  <span class="msg" id="saveMsg"></span>
+  <button id="later" hidden>先不改，回去</button>
+  <button class="primary" id="save">保存，开始用</button>
+</div></div>
+<script>
+  const $ = (id) => document.getElementById(id);
+  const FIELDS = ['apiKey', 'city', 'intro', 'keywords', 'resumeText', 'criteria', 'salaryExpect', 'nearDistricts', 'portfolio', 'blacklist', 'wechatAlt', 'tgToken', 'tgChat', 'tgProxy'];
+  let parsed = null;
+  const say = (id, text, cls = '') => { $(id).textContent = text; $(id).className = 'msg ' + cls; };
+  const clean = (e) => String(e?.message || e).replace(/^Error invoking remote method '[^']+': (Error: )?/, '');
+
+  hrsetup.get().then((s) => {
+    for (const k of FIELDS) if (s.form[k] != null) $(k).value = s.form[k];
+    document.querySelector(`input[name=pronoun][value="${s.form.pronoun === '她' ? '她' : '他'}"]`).checked = true;
+    parsed = s.form.resume || null;
+    if (parsed?.name) say('parseMsg', `已解析：${parsed.name}${parsed.school ? ' · ' + parsed.school : ''}`, 'ok');
+    $('later').hidden = !s.ready;
+    if (s.env) {
+      const b = s.env.browser;
+      $('env').hidden = false;
+      $('env').className = 'envline' + (b ? '' : ' bad');
+      $('env').textContent = b ? `找岗位、网申会借用这台电脑上的浏览器：${b.split(/[\\/]/).slice(-1)[0]}（已找到）`
+        : '没找到 Chrome 或 Edge：找岗位、网申自动填这两项用不了，装一个 Chrome 后重开软件就好。其它功能不受影响。';
+    }
+    if (s.ready) $('save').textContent = '保存';
+  });
+
+  $('test').onclick = async () => {
+    const key = $('apiKey').value.trim();
+    if (!key) return say('testMsg', '先粘贴 Key', 'bad');
+    $('test').disabled = true; say('testMsg', '在连 DeepSeek…');
+    try { await hrsetup.test(key); say('testMsg', '连上了，Key 能用', 'ok'); }
+    catch (e) {
+      const m = clean(e);
+      say('testMsg', /401|Authentication/i.test(m) ? 'Key 不对：DeepSeek 说认证失败，检查有没有复制全' : /402|Insufficient|余额/i.test(m) ? 'Key 对了，但账户没余额，去充值' : '没连上：' + m.slice(0, 120), 'bad');
+    }
+    finally { $('test').disabled = false; }
+  };
+  $('pick').onclick = async () => {
+    try { const t = await hrsetup.pickResume(); if (t != null) { $('resumeText').value = t; parsed = null; say('parseMsg', `读进来了，${t.length} 字`, 'ok'); } }
+    catch (e) { say('parseMsg', clean(e), 'bad'); }
+  };
+  $('resumeText').addEventListener('input', () => { if (parsed) { parsed = null; say('parseMsg', '简历改过了，要的话再解析一次'); } });
+  $('parse').onclick = async () => {
+    const text = $('resumeText').value.trim(), key = $('apiKey').value.trim();
+    if (!text) return say('parseMsg', '先粘贴简历', 'bad');
+    if (!key) return say('parseMsg', '解析要用第 1 步的 Key', 'bad');
+    $('parse').disabled = true; say('parseMsg', '解析中，大约 20 秒…');
+    try { parsed = await hrsetup.parse(text, key); say('parseMsg', `解析好了：${parsed.name || '（没读到名字）'}${parsed.school ? ' · ' + parsed.school : ''}，经历 ${parsed.experiences?.length || 0} 段`, 'ok'); }
+    catch (e) { say('parseMsg', '没解析成：' + clean(e), 'bad'); }
+    finally { $('parse').disabled = false; }
+  };
+  $('save').onclick = async () => {
+    const form = Object.fromEntries(FIELDS.map((k) => [k, $(k).value]));
+    form.pronoun = document.querySelector('input[name=pronoun]:checked').value;
+    if (parsed) form.resume = parsed;
+    $('save').disabled = true; say('saveMsg', '保存中…');
+    try {
+      const r = await hrsetup.save(form);
+      if (r.missing.length) say('saveMsg', `存好了，还差：${r.missing.join('、')}。填齐了才会开始盯 HR 消息`, 'bad');
+      else { say('saveMsg', '存好了，正在打开「今天」…', 'ok'); setTimeout(() => hrsetup.close(), 600); }
+    } catch (e) { say('saveMsg', '没存上：' + clean(e), 'bad'); }
+    finally { $('save').disabled = false; }
+  };
+  $('later').onclick = () => hrsetup.close();
+</script>
+</body>
+</html>

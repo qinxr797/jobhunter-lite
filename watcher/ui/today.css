@@ -1,0 +1,140 @@
+/* 今天页 v2.2.0：照 Linear Inbox / My Issues（分组、空组隐藏、E 完成），Todoist Today（逾期 / 今天），Superhuman（稍后提醒）。
+   颜色只取 tokens.css；一页一个焦点：只有选中那一件的主按钮是实心。 */
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--text); font: var(--fs-base)/1.5 var(--font); -webkit-font-smoothing: antialiased; font-variant-numeric: tabular-nums; }
+button { font: inherit; color: inherit; }
+::selection { background: rgba(37, 99, 235, .18); }
+* { scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
+:focus { outline: none; }
+:focus-visible { box-shadow: var(--ring); border-radius: var(--r-sm); }
+.i { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+kbd { font: 600 10.5px/16px var(--mono); padding: 0 5px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; color: var(--text-3); background: var(--bg); }
+
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 32px; padding: 0 12px; border: 1px solid var(--line-2); background: var(--bg); color: var(--text); border-radius: var(--r); font-size: var(--fs-md); font-weight: 500; cursor: pointer; white-space: nowrap; text-decoration: none; transition: background .15s var(--ease), border-color .15s var(--ease), color .15s var(--ease); }
+.btn:hover { background: var(--hover); }
+.btn .i { width: 15px; height: 15px; }
+.btn.primary { background: var(--primary); border-color: var(--primary); color: var(--primary-fg); font-weight: 600; }
+.btn.primary:hover { background: var(--primary-hover); }
+.btn.ghost { border-color: transparent; background: transparent; color: var(--text-3); padding: 0 8px; }
+.btn.ghost:hover { background: var(--hover); color: var(--text); }
+.btn.ghost kbd { margin-left: 2px; }
+
+/* 页面骨架：单栏居中，底部战报贴底 */
+#page { max-width: 860px; margin: 0 auto; padding: 24px 32px 0; min-height: 100vh; display: flex; flex-direction: column; }
+.top { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.day { display: flex; align-items: baseline; gap: 10px; }
+.day h1 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -.01em; }
+.date { color: var(--text-3); font-size: var(--fs-md); }
+
+/* 盯梢状态小条 */
+.watch { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: var(--fs-sm); color: var(--text-3); }
+.watch .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-4); flex: none; }
+.watch .dot.on { background: var(--ok); }
+.watch .dot.warn { background: var(--warn); }
+.watch .dot.bad { background: var(--danger); }
+.watch b { font-weight: 600; color: var(--text-2); }
+.watch .sep { color: var(--line-2); }
+.watch .pf.live { color: var(--text-2); }
+.watch .pf.bad { color: var(--danger); }
+.watch .fix { color: var(--danger); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; margin-left: 2px; }
+.watch .fix:hover { color: var(--text); }
+.watch[hidden] { display: none; }
+
+/* 分组 */
+#groups { flex: 1; padding: 8px 0 24px; }
+.grp { margin-top: 16px; }
+.grp-head { display: flex; align-items: center; gap: 8px; height: 28px; padding: 0 10px; font-size: var(--fs-md); font-weight: 600; color: var(--text-2); }
+.grp-head .n { color: var(--text-3); font-weight: 500; }
+.grp-head .mark { width: 8px; height: 8px; border-radius: 50%; background: var(--line-2); }
+.grp[data-g="you"] .grp-head .mark { background: var(--attn); }
+.grp[data-g="reply"] .grp-head .mark { background: var(--info); }
+.grp[data-g="overdue"] .grp-head .mark { background: var(--danger); }
+.grp[data-g="today"] .grp-head .mark { background: var(--text-3); }
+.grp[data-g="you"] .grp-head { color: var(--text); }
+
+/* 一件事一行：平台小标 | 标题 + 详情 | 到期 | 按钮 */
+.task { display: grid; grid-template-columns: 22px minmax(0, 1fr) 72px auto; align-items: center; gap: 4px 12px; padding: 10px; border-radius: var(--r); cursor: default; position: relative; transition: background .12s var(--ease), opacity .2s var(--ease); }
+.task:hover { background: var(--hover); }
+.task.sel { background: var(--muted); }
+.task.sel::before { content: ""; position: absolute; left: -8px; top: 10px; bottom: 10px; width: 3px; border-radius: 2px; background: var(--text); }
+.task .main { min-width: 0; }
+.task .ttl { font-weight: 600; font-size: var(--fs-base); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.task .ttl .job { font-weight: 400; color: var(--text-3); margin-left: 8px; font-size: var(--fs-md); }
+.task .det { font-size: var(--fs-md); color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.task:hover .det, .task.sel .det { color: var(--text-2); } /* 灰底上 --text-3 只有 4.4:1，加深一级 */
+.task .acts { display: flex; align-items: center; gap: 2px; }
+.task .acts .go { margin-right: 6px; min-width: 92px; } /* 定宽：各行按钮上下对齐（费茨：位置固定） */
+/* 主按钮实心、快捷键小标只给选中那一行；小标的位置一直占着，按钮不会跟着挪 */
+.task.sel .go { background: var(--primary); border-color: var(--primary); color: var(--primary-fg); font-weight: 600; }
+.task.sel .go:hover { background: var(--primary-hover); }
+.task:not(.sel) .acts kbd { visibility: hidden; }
+.task.leaving { opacity: 0; }
+
+.plat-ico { width: 20px; height: 20px; border-radius: 5px; color: #fff; font-size: 11px; font-weight: 800; display: grid; place-items: center; flex: none; letter-spacing: -.02em; }
+.p-boss { background: var(--boss); } .p-zl { background: var(--zl); } .p-51 { background: var(--j51); } .p-lp { background: var(--lp); } .p-campus { background: #7c3aed; }
+.p-none { background: var(--muted); color: var(--text-3); }
+.p-none .i { width: 12px; height: 12px; }
+
+.due { font-size: var(--fs-sm); color: var(--text-3); white-space: nowrap; text-align: right; }
+.due.over { color: var(--danger); font-weight: 600; }
+.due.today { color: var(--text-2); }
+
+/* 稍后菜单 */
+.pop { position: fixed; z-index: 40; background: var(--bg); border-radius: var(--r); box-shadow: var(--sh-pop); padding: 4px; min-width: 200px; animation: up .14s var(--ease); }
+.pop button { display: flex; align-items: center; gap: 10px; width: 100%; border: 0; background: transparent; padding: 7px 10px; border-radius: var(--r-sm); font-size: var(--fs-md); cursor: pointer; text-align: left; }
+.pop button:hover, .pop button:focus-visible { background: var(--hover); box-shadow: none; }
+.pop button em { font-style: normal; color: var(--text-3); margin-left: auto; font-size: var(--fs-sm); }
+.pop button[disabled] { opacity: .45; cursor: default; pointer-events: none; }
+.pop button kbd { min-width: 18px; text-align: center; }
+
+/* 全清空 */
+.done-all { text-align: center; padding: 96px 16px 64px; color: var(--text-2); }
+.done-all .badge { width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; margin: 0 auto 16px; background: var(--ok-soft); color: var(--ok); }
+.done-all .badge .i { width: 22px; height: 22px; }
+.done-all h2 { margin: 0 0 8px; font-size: var(--fs-xl); font-weight: 650; color: var(--text); }
+.done-all p { margin: 0; font-size: var(--fs-md); color: var(--text-3); }
+.done-all p.win { color: var(--text-2); margin-bottom: 4px; }
+.done-all p.blind { color: var(--warn); margin-bottom: 8px; }
+.done-all .badge.warn { background: var(--warn-soft); color: var(--warn); }
+.done-all .next { margin-top: 20px; display: flex; gap: 8px; justify-content: center; }
+.load-err { margin: 48px auto; max-width: 420px; text-align: center; color: var(--text-3); font-size: var(--fs-md); }
+.load-err b { display: block; color: var(--text); font-size: var(--fs-base); margin-bottom: 6px; }
+
+/* 底部今日战报 */
+.report { position: sticky; bottom: 0; background: var(--bg); border-top: 1px solid var(--line); padding: 12px 10px 14px; font-size: var(--fs-md); color: var(--text-3); display: flex; align-items: center; gap: 12px; }
+.report:empty { display: none; }
+.report b { color: var(--text); font-weight: 600; }
+.report .keys { margin-left: auto; display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+.report .keys .btn { height: 32px; width: 32px; padding: 0; }
+.report .ver { margin-left: 4px; color: var(--text-3); font-size: var(--fs-xs); }
+
+#toasts { position: fixed; left: 50%; bottom: 8px; transform: translateX(-50%); display: flex; flex-direction: column; gap: 8px; z-index: 60; align-items: center; }
+.toast { display: flex; align-items: center; gap: 12px; background: var(--primary); color: var(--primary-fg); padding: 9px 10px 9px 14px; border-radius: var(--r); font-size: var(--fs-md); box-shadow: var(--sh-pop); max-width: 480px; animation: up .18s var(--ease); }
+.toast.bad { background: var(--danger); color: #fff; }
+.toast span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.toast button { border: 0; background: rgba(127, 127, 127, .22); color: inherit; border-radius: var(--r-sm); padding: 3px 10px; font-weight: 600; cursor: pointer; flex: none; }
+.toast button:hover { background: rgba(127, 127, 127, .36); }
+.toast .bar { height: 2px; background: currentColor; opacity: .35; position: absolute; left: 0; bottom: 0; border-radius: 0 0 var(--r) var(--r); }
+.toast { position: relative; overflow: hidden; }
+@keyframes up { from { transform: translateY(6px); opacity: 0; } }
+@keyframes drain { from { width: 100%; } to { width: 0; } }
+
+.modal { position: fixed; inset: 0; background: rgba(9, 9, 11, .4); display: grid; place-items: center; z-index: 50; padding: 16px; }
+.modal[hidden] { display: none; }
+.modal-card { background: var(--bg); border-radius: var(--r-lg); padding: 20px 24px; box-shadow: var(--sh-pop); min-width: 300px; max-width: min(560px, 100%); display: flex; flex-direction: column; gap: 12px; }
+.modal-card h2 { margin: 0; font-size: var(--fs-lg); font-weight: 650; }
+.modal-card dl { display: grid; grid-template-columns: auto 1fr; gap: 8px 18px; margin: 0; font-size: var(--fs-md); }
+.modal-card dt { white-space: nowrap; }
+.modal-card dd { margin: 0; color: var(--text-2); }
+.modal-acts { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+
+/* 窄窗口：按钮只留图标，详情照样一行 */
+@media (max-width: 760px) {
+  #page { padding: 16px 16px 0; }
+  .task { grid-template-columns: 22px minmax(0, 1fr) auto; }
+  .task .due { grid-column: 2; grid-row: 2; }
+  .task .acts { grid-column: 3; grid-row: 1 / span 2; }
+  .task .acts .ghost .lbl, .task .acts .ghost kbd { display: none; }
+  .report .keys { display: none; }
+}

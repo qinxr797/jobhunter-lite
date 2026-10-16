@@ -1,0 +1,3 @@
+# 隐私扫描白名单：位置片段<Tab>规则名<Tab>理由。只放确认过的误报，别把真信息放行
+vendor/sheetjs/xlsx.mjs	手机号	第三方表格库里的常量数字，不是电话
+extension/src/lib/autofill-lib.js:292		网申表单「国家」下拉的国家名列表，功能性的，不是个人计划
